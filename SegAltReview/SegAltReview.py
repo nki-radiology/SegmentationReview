@@ -71,7 +71,7 @@ class SegAltReviewWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.roi_display = None
         self.segmentation_visible = False
         self.segmentation_color = [1, 0, 0]
-        self.updated_segmentations = []
+        self.updated_segmentations = {}
         self.directory = None
         self.current_index = 0
         self.likert_scores = []
