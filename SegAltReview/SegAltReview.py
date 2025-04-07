@@ -246,9 +246,20 @@ class SegAltReviewWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             annotated_files = set()
 
         # Collect patients, images and segmentations in file paths JSON
-        self.patientIDs = sorted(list(self.file_paths.keys()))  # Ensure sorted patientIDs
-        self.new_patientIDs = sorted(list(set(self.patientIDs) - annotated_files))  # Sort the difference as well
-        self.old_patientIDs = sorted(list(set(self.patientIDs)- set(self.new_patientIDs)))
+        self.patientIDs = sorted(
+            self.file_paths.keys(),
+            key=lambda x: int(re.findall(r'\d+', x)[-1])
+        )
+
+        self.new_patientIDs = sorted(
+            list(set(self.patientIDs) - annotated_files),
+            key=lambda x: int(re.findall(r'\d+', x)[-1])
+        )
+
+        self.old_patientIDs = sorted(
+            list(set(self.patientIDs) - set(self.new_patientIDs)),
+            key=lambda x: int(re.findall(r'\d+', x)[-1])
+        )
 
         # Update patientIDs to reflect old vs new
         self.patientIDs = self.old_patientIDs + self.new_patientIDs
@@ -484,60 +495,89 @@ class SegAltReviewWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         # Check if the current segmentation is not None
         if self.original_segmentations[self.patientIDs[self.current_index]] is not None:
-            # Set bounding box
+            # Buffers to handle unordered segment metadata
+            segment_extents = {}
+            segment_names_map = {}
             extents = []
-            space_origin = None
-            space_directions = []
+            all_extents = []
 
-            # Read file header
-            with open(Path(self.directory / self.original_segmentations[self.patientIDs[self.current_index]]), 'rb') as file:
-                current_segment_name = None  # Track the name of the current segment
-                temp_extent = None  # Temporarily store extent until matched with a name
+            segment_names = getattr(self, "segment_names", ["Neoplasm, Primary"])
+            segment_names = [name.lower() for name in segment_names]
+
+            with open(Path(self.directory / self.original_segmentations[self.patientIDs[self.current_index]]),
+                      'rb') as file:
+                space_origin = None
+                space_directions = []
+                single_extent_mode = False
+                extent_found = False
 
                 for line in file:
                     try:
-                        line = line.decode('utf-8')
-                        if line.strip() == "":
+                        line = line.decode('utf-8').strip()
+                        if not line:
                             break
 
-                        # Check for segment name
-                        if line.startswith("Segment") and "_Name:=" in line:
-                            current_segment_name = re.match(r"Segment\d+_Name:=([\w\s,]+)", line).group(1).strip()
-
-                            # If extent is already found and name matches, add to extents
-                            if current_segment_name == "Neoplasm, Primary" and temp_extent is not None:
-                                extents.append(temp_extent)
-                                temp_extent = None  # Clear temp_extent after appending
-                                current_segment_name = None
-                                
-                        # Check for extent
-                        elif line.startswith("Segment") and "_Extent:=" in line:
-                            temp_extent = list(map(int, re.match(r"Segment\d+_Extent:=([\d\s]+)", line).group(1).split()))
-
-                            # If name is already found and matches, add to extents
-                            if current_segment_name == "Neoplasm, Primary":
-                                extents.append(temp_extent)
-                                temp_extent = None  # Clear temp_extent after appending
-                                current_segment_name = None
-
-                        # Handle space origin
-                        elif line.startswith("space origin:"):
+                        if line.startswith("space origin:"):
                             space_origin = np.array(list(map(float, re.findall(r"-?\d+\.\d+|-?\d+", line))))
+                            continue
 
-                        # Handle space directions
-                        elif line.startswith("space directions:"):
+                        if line.startswith("space directions:"):
                             directions = re.findall(r'\(.*?\)|none', line)
                             for dir_line in directions:
                                 if dir_line != "none":
-                                    # Extract numbers and convert to float (works for both integers and floats)
-                                    space_directions.append([float(num) for num in re.findall(r"-?\d+\.\d+|-?\d+", dir_line)])
+                                    space_directions.append(
+                                        [float(num) for num in re.findall(r"-?\d+\.\d+|-?\d+", dir_line)])
+                            continue
+
+                        if line.startswith("dimensions:"):
+                            dimensions = int(re.search(r"\d+", line).group())
+                            single_extent_mode = (dimensions == 3)
+                            print(f"Dimensions: {dimensions}")
+                            continue
+
+                        # ---- SINGLE SEGMENT MODE ----
+                        if single_extent_mode:
+                            if not extent_found and line.startswith("Segment") and "_Extent:=" in line:
+                                extent = list(
+                                    map(int, re.match(r"Segment\d+_Extent:=([\d\s]+)", line).group(1).split()))
+                                print(f"Found extent: {extent}")
+                                extents.append(extent)
+                                extent_found = True
+                            continue
+
+                        # ---- MULTI SEGMENT MODE ----
+                        segment_match = re.match(r"Segment(\d+)_", line)
+                        if segment_match:
+                            seg_id = int(segment_match.group(1))
+
+                            if "_Extent:=" in line:
+                                extent = list(
+                                    map(int, re.match(r"Segment\d+_Extent:=([\d\s]+)", line).group(1).split()))
+                                segment_extents[seg_id] = extent
+                                all_extents.append(extent)
+                                print(f"Found extent: {extent} for Segment {seg_id}")
+
+                            elif "_Name:=" in line:
+                                name = re.match(r"Segment\d+_Name:=([\w\s,]+)", line).group(1).strip()
+                                segment_names_map[seg_id] = name
+                                print(f"Found name: {name} for Segment {seg_id}")
 
                     except UnicodeDecodeError:
                         break
-            
-            
+
+            # --- Match extents to names ---
+            for seg_id, name in segment_names_map.items():
+                if name.lower() in segment_names and seg_id in segment_extents:
+                    extents.append(segment_extents[seg_id])
+                    print(f"Matched extent {segment_extents[seg_id]} to segment '{name}'")
+
+            # Fallback for 4D: if only one extent exists
+            if not single_extent_mode and not extents and len(all_extents) == 1:
+                extents.append(all_extents[0])
+
             # Prepare data
             extents = np.array(extents)
+            print(extents)
             voxel_min = np.min(extents[:, [0, 2, 4]], axis=0)
             voxel_max = np.max(extents[:, [1, 3, 5]], axis=0)
 
@@ -552,7 +592,7 @@ class SegAltReviewWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             # Compute spatial size and apply margin
             spatial_size = spatial_max - spatial_min
-            margin = 0.5 * spatial_size  # 30% margin in spatial coordinates
+            margin = 0.5 * spatial_size
             spatial_min = spatial_min - margin / 2  # Expand equally on both sides
             spatial_max = spatial_max + margin / 2
             spatial_center = (spatial_min + spatial_max) / 2
