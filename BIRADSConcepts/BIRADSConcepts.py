@@ -4,7 +4,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 import qt, ctk
-
+from pathlib import Path
 
 class BIRADSConcepts(ScriptedLoadableModule):
     def __init__(self, parent):
@@ -61,9 +61,10 @@ class BIRADSConceptsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 class BIRADSConceptsLogic:
     def __init__(self):
-        # Paths to CSVs (customize these paths as needed)
-        self.reader_info_path = "../backend/info/reader_info.csv"
-        self.assignment_path = "../backend/info/reader_info.csv"
+        # Paths to CSVs 
+        self.backend_directory = Path(__file__).parent.parent / "backend"
+        self.reader_info_path = self.backend_directory / "info/reader_info.csv"
+        self.assignment_path = self.backend_directory / "info/reader_info.csv"
 
         self.reader_df = pd.read_csv(self.reader_info_path)
         self.assignment_df = pd.read_csv(self.assignment_path)
