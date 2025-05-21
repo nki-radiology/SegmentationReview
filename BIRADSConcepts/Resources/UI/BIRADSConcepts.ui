@@ -12,6 +12,32 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QGroupBox" name="readerInputGroup">
+     <property name="title">
+      <string>Reader Information</string>
+     </property>
+     <layout class="QFormLayout" name="readerFormLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="readerNameLabel">
+        <property name="text">
+         <string>Reader Name:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="readerNameInput"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QPushButton" name="startStudyButton">
+        <property name="text">
+         <string>Start Study</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QLabel" name="status_checked">
      <property name="text">
       <string>Checked: 0 / N</string>
@@ -36,89 +62,32 @@
          <string>Likert Score:</string>
         </property>
         <widget class="QRadioButton" name="radioButton_1">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>20</y>
-           <width>201</width>
-           <height>21</height>
-          </rect>
-         </property>
          <property name="text">
           <string>1 - Acceptable,  no changes</string>
          </property>
         </widget>
         <widget class="QRadioButton" name="radioButton_2">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>40</y>
-           <width>221</width>
-           <height>21</height>
-          </rect>
-         </property>
          <property name="text">
           <string>2 - Acceptable,  minor changes</string>
          </property>
         </widget>
         <widget class="QRadioButton" name="radioButton_3">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>60</y>
-           <width>231</width>
-           <height>21</height>
-          </rect>
-         </property>
          <property name="text">
           <string>3 - Unacceptable,  major changes</string>
          </property>
         </widget>
         <widget class="QRadioButton" name="radioButton_4">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>80</y>
-           <width>221</width>
-           <height>21</height>
-          </rect>
-         </property>
          <property name="text">
           <string>4 - Unacceptable,  not visible </string>
          </property>
         </widget>
         <widget class="QRadioButton" name="radioButton_5">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>100</y>
-           <width>358</width>
-           <height>22</height>
-          </rect>
-         </property>
          <property name="text">
           <string>5 - Bad image</string>
          </property>
         </widget>
-        <widget class="QPlainTextEdit" name="comment">
-         <property name="geometry">
-          <rect>
-           <x>80</x>
-           <y>125</y>
-           <width>271</width>
-           <height>21</height>
-          </rect>
-         </property>
-        </widget>
+        <widget class="QPlainTextEdit" name="comment"/>
         <widget class="QLabel" name="status_checked_2">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>130</y>
-           <width>71</width>
-           <height>16</height>
-          </rect>
-         </property>
          <property name="text">
           <string>Comment:</string>
          </property>

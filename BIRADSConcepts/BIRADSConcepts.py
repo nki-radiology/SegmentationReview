@@ -26,37 +26,69 @@ class BIRADSConceptsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = None
         self.reader_id = None
         self.assigned_patients = []
-
+        
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
+        slicer.util.setDataProbeVisible(False)
+
 
         # Load UI from file
         uiWidget = slicer.util.loadUI(self.resourcePath('UI/BIRADSConcepts.ui'))
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
+        # Initially hide all other widgets
+        self.ui.status_checked.hide()
+        self.ui.inputsCollapsibleButton.hide()
+        self.ui.save_and_next.hide()
+        self.ui.overwrite_mask.hide()
+
+
         self.logic = BIRADSConceptsLogic()
 
         # Connect signals to slots
-        self.ui.loadButton.connect('clicked(bool)', self.onLoadAssignedPatients)
+        self.ui.startStudyButton.connect('clicked(bool)', self.onStartStudy)
 
-        self.layout.addStretch(1)
-
-    def onLoadAssignedPatients(self):
-        reader_name = self.readerNameInput.text.strip()
+        # self.layout.addStretch(1)
+    
+    def onStartStudy(self):
+        reader_name = self.ui.readerNameInput.text.strip()
         if not reader_name:
-            self.statusLabel.setText("Please enter a reader name.")
+            qt.QMessageBox.warning(None, "Input Error", "Please enter your name.")
             return
-
-        reader_id = self.logic.get_reader_id(reader_name)
-        if reader_id is None:
-            self.statusLabel.setText("Reader name not found.")
+        
+        # Load reader info
+        
+        self.reader_id = self.logic.get_reader_id(reader_name=reader_name)
+        if self.reader_id is None:
+            qt.QMessageBox.warning(None, "Reader Not Found", f"No reader ID found for {reader_name}.")
             return
+        
+        # Load assigned patients
+        self.assigned_patients = self.logic.get_patients_for_reader(reader_id=self.reader_id)
+        if not self.assigned_patients:
+            qt.QMessageBox.information(None, "No Cases", "No cases assigned to this reader.")
+        else:
+            qt.QMessageBox.information(None, "Case Loaded", f"Cases: {','.join(self.assigned_patients)}")
 
-        self.reader_id = reader_id
-        self.assigned_patients = self.logic.get_patients_for_reader(reader_id)
 
-        self.statusLabel.setText(f"Loaded {len(self.assigned_patients)} patients for reader ID {reader_id}.")
+
+
+    # def onLoadAssignedPatients(self):
+    #     reader_name = self.readerNameInput.text.strip()
+    #     if not reader_name:
+    #         self.statusLabel.setText("Please enter a reader name.")
+    #         return
+
+    #     reader_id = self.logic.get_reader_id(reader_name)
+    #     if reader_id is None:
+    #         self.statusLabel.setText("Reader name not found.")
+    #         return
+
+    #     self.reader_id = reader_id
+    #     self.assigned_patients = self.logic.get_patients_for_reader(reader_id)
+
+    #     self.statusLabel.setText(f"Loaded {len(self.assigned_patients)} patients for reader ID {reader_id}.")
 
 
 class BIRADSConceptsLogic:
@@ -64,7 +96,7 @@ class BIRADSConceptsLogic:
         # Paths to CSVs 
         self.backend_directory = Path(__file__).parent.parent / "backend"
         self.reader_info_path = self.backend_directory / "info/reader_info.csv"
-        self.assignment_path = self.backend_directory / "info/reader_info.csv"
+        self.assignment_path = self.backend_directory / "info/patient_assignment.csv"
 
         self.reader_df = pd.read_csv(self.reader_info_path)
         self.assignment_df = pd.read_csv(self.assignment_path)
