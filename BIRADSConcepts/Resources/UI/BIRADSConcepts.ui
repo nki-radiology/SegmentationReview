@@ -71,6 +71,19 @@
    </item>
 
    <item>
+    <widget class="QGroupBox" name="biradsRightSubGroup">
+     <property name="title">
+      <string>BI-RADS 4 Subcategories (Right)</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="biradsRight4A"><property name="text"><string>4A</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsRight4B"><property name="text"><string>4B</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsRight4C"><property name="text"><string>4C</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
+   <item>
     <widget class="QGroupBox" name="biradsLeftGroup">
      <property name="title">
       <string>BI-RADS (Left):</string>
@@ -81,6 +94,19 @@
       <item><widget class="QRadioButton" name="biradsLeft3"><property name="text"><string>BI-RADS 3</string></property></widget></item>
       <item><widget class="QRadioButton" name="biradsLeft4"><property name="text"><string>BI-RADS 4</string></property></widget></item>
       <item><widget class="QRadioButton" name="biradsLeft5"><property name="text"><string>BI-RADS 5</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
+   <item>
+    <widget class="QGroupBox" name="biradsLeftSubGroup">
+     <property name="title">
+      <string>BI-RADS 4 Subcategories (Left)</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="biradsLeft4A"><property name="text"><string>4A</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsLeft4B"><property name="text"><string>4B</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsLeft4C"><property name="text"><string>4C</string></property></widget></item>
      </layout>
     </widget>
    </item>

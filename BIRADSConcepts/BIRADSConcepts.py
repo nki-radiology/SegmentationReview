@@ -71,8 +71,11 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
-        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateAndShowDensitySection)
-        self.ui.save_and_next.connect('clicked(bool)', self.validateAndSave)
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateBiradsAndProceed)
+        self.ui.save_and_next.connect('clicked(bool)', self.validateDensityAndProceed)
+
+        self.ui.biradsRight4.toggled.connect(lambda state: self.ui.biradsRightSubGroup.setVisible(state))
+        self.ui.biradsLeft4.toggled.connect(lambda state: self.ui.biradsLeftSubGroup.setVisible(state))
 
         slicer.util.setDataProbeVisible(False)
 
@@ -80,6 +83,8 @@ class ReaderStudyController:
         self.ui.instructionLabel.hide()
         self.ui.biradsRightGroup.hide()
         self.ui.biradsLeftGroup.hide()
+        self.ui.biradsRightSubGroup.hide()
+        self.ui.biradsLeftSubGroup.hide()
         self.ui.nextQuestionButton.hide()
         self.ui.densityRightGroup.hide()
         self.ui.densityLeftGroup.hide()
@@ -92,27 +97,46 @@ class ReaderStudyController:
         self.ui.status_checked.show()
         self.ui.biradsRightGroup.show()
         self.ui.biradsLeftGroup.show()
+        self.ui.biradsRightSubGroup.setVisible(False)
+        self.ui.biradsLeftSubGroup.setVisible(False)
         self.ui.nextQuestionButton.show()
-
-    def validateAndShowDensitySection(self):
-        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
-        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
-
-        if not right_score or not left_score:
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS for both sides before continuing.")
-            return
-
-        self.showDensitySection()
 
     def showDensitySection(self):
         self.ui.instructionLabel.setText("Please, assess the breast density per side.")
         self.ui.biradsRightGroup.hide()
         self.ui.biradsLeftGroup.hide()
+        self.ui.biradsRightSubGroup.hide()
+        self.ui.biradsLeftSubGroup.hide()
         self.ui.nextQuestionButton.hide()
 
         self.ui.densityRightGroup.show()
         self.ui.densityLeftGroup.show()
         self.ui.save_and_next.show()
+
+    def validateBiradsAndProceed(self):
+        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
+        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
+        if not right_score or not left_score:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS for both sides before continuing.")
+            return
+
+        if right_score == "BI-RADS 4" and not self.getSelectedButtonText(self.ui.biradsRightSubGroup):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS 4 subcategory for the right breast.")
+            return
+
+        if left_score == "BI-RADS 4" and not self.getSelectedButtonText(self.ui.biradsLeftSubGroup):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS 4 subcategory for the left breast.")
+            return
+
+        self.showDensitySection()
+
+    def validateDensityAndProceed(self):
+        right_density = self.getSelectedButtonText(self.ui.densityRightGroup)
+        left_density = self.getSelectedButtonText(self.ui.densityLeftGroup)
+        if not right_density or not left_density:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select density for both sides before continuing.")
+            return
+        self.saveAndNext()
 
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
@@ -164,24 +188,21 @@ class ReaderStudyController:
         self.showBiradsSection()
 
     def clearRadioSelections(self):
-        for group in [self.ui.biradsRightGroup, self.ui.biradsLeftGroup, self.ui.densityRightGroup, self.ui.densityLeftGroup]:
+        for group in [self.ui.biradsRightGroup, self.ui.biradsLeftGroup, self.ui.biradsRightSubGroup, self.ui.biradsLeftSubGroup, self.ui.densityRightGroup, self.ui.densityLeftGroup]:
             for rb in group.findChildren(qt.QRadioButton):
                 rb.setAutoExclusive(False)
                 rb.setChecked(False)
                 rb.setAutoExclusive(True)
 
-    def validateAndSave(self):
+    def saveAndNext(self):
+        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
+        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
+        right_sub = self.getSelectedButtonText(self.ui.biradsRightSubGroup)
+        left_sub = self.getSelectedButtonText(self.ui.biradsLeftSubGroup)
         right_density = self.getSelectedButtonText(self.ui.densityRightGroup)
         left_density = self.getSelectedButtonText(self.ui.densityLeftGroup)
 
-        if not right_density or not left_density:
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select density for both sides before saving.")
-            return
-
-        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
-        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
-
-        print(f"BI-RADS Right: {right_score}, Left: {left_score}")
+        print(f"BI-RADS Right: {right_score} {right_sub if right_score == 'BI-RADS 4' else ''}, Left: {left_score} {left_sub if left_score == 'BI-RADS 4' else ''}")
         print(f"Density Right: {right_density}, Left: {left_density}")
 
         self.loadNextCase()
