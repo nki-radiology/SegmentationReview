@@ -6,26 +6,11 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>381</width>
-    <height>300</height>
+    <width>400</width>
+    <height>600</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="spacing">
-    <number>6</number>
-   </property>
-   <property name="topMargin">
-    <number>6</number>
-   </property>
-   <property name="bottomMargin">
-    <number>6</number>
-   </property>
-   <property name="leftMargin">
-    <number>6</number>
-   </property>
-   <property name="rightMargin">
-    <number>6</number>
-   </property>
 
    <item>
     <widget class="QGroupBox" name="readerInputGroup">
@@ -65,75 +50,111 @@
    <item>
     <widget class="QLabel" name="instructionLabel">
      <property name="text">
-      <string>Please, read this case as you would in a clinical setting and provide the BI-RADS score per breast.</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
+      <string>Please read this case and provide the BI-RADS score per breast.</string>
      </property>
     </widget>
    </item>
 
+   <!-- BI-RADS Scoring UI -->
    <item>
-    <layout class="QFormLayout" name="formLayout_2">
-     <property name="spacing">
-      <number>4</number>
+    <widget class="QLabel" name="biradsLabelRight">
+     <property name="text">
+      <string>BI-RADS (Right):</string>
      </property>
-     <property name="horizontalSpacing">
-      <number>4</number>
-     </property>
-     <property name="verticalSpacing">
-      <number>4</number>
-     </property>
-     <item row="0" column="0">
-      <widget class="QLabel" name="biradsLabelRight">
-       <property name="text">
-        <string>BI-RADS (Right):</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QComboBox" name="biradsComboRight">
-       <property name="editable">
-        <bool>false</bool>
-       </property>
-       <item><property name="text"><string>BI-RADS 1</string></property></item>
-       <item><property name="text"><string>BI-RADS 2</string></property></item>
-       <item><property name="text"><string>BI-RADS 3</string></property></item>
-       <item><property name="text"><string>BI-RADS 4</string></property></item>
-       <item><property name="text"><string>BI-RADS 5</string></property></item>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="biradsLabelLeft">
-       <property name="text">
-        <string>BI-RADS (Left):</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="biradsComboLeft">
-       <property name="editable">
-        <bool>false</bool>
-       </property>
-       <item><property name="text"><string>BI-RADS 1</string></property></item>
-       <item><property name="text"><string>BI-RADS 2</string></property></item>
-       <item><property name="text"><string>BI-RADS 3</string></property></item>
-       <item><property name="text"><string>BI-RADS 4</string></property></item>
-       <item><property name="text"><string>BI-RADS 5</string></property></item>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QPushButton" name="save_and_next">
-       <property name="text">
-        <string>Save and Next</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    </widget>
    </item>
+   <item>
+    <widget class="QComboBox" name="biradsComboRight">
+     <item><property name="text"><string>BI-RADS 1</string></property></item>
+     <item><property name="text"><string>BI-RADS 2</string></property></item>
+     <item><property name="text"><string>BI-RADS 3</string></property></item>
+     <item><property name="text"><string>BI-RADS 4</string></property></item>
+     <item><property name="text"><string>BI-RADS 5</string></property></item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="biradsSubRight">
+     <item><property name="text"><string>4A</string></property></item>
+     <item><property name="text"><string>4B</string></property></item>
+     <item><property name="text"><string>4C</string></property></item>
+    </widget>
+   </item>
+
+   <item>
+    <widget class="QLabel" name="biradsLabelLeft">
+     <property name="text">
+      <string>BI-RADS (Left):</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="biradsComboLeft">
+     <item><property name="text"><string>BI-RADS 1</string></property></item>
+     <item><property name="text"><string>BI-RADS 2</string></property></item>
+     <item><property name="text"><string>BI-RADS 3</string></property></item>
+     <item><property name="text"><string>BI-RADS 4</string></property></item>
+     <item><property name="text"><string>BI-RADS 5</string></property></item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="biradsSubLeft">
+     <item><property name="text"><string>4A</string></property></item>
+     <item><property name="text"><string>4B</string></property></item>
+     <item><property name="text"><string>4C</string></property></item>
+    </widget>
+   </item>
+
+   <item>
+    <widget class="QPushButton" name="nextQuestionButton">
+     <property name="text">
+      <string>Next Question</string>
+     </property>
+    </widget>
+   </item>
+
+   <!-- Density Assessment UI -->
+   
+   <item>
+    <widget class="QLabel" name="densityLabelRight">
+     <property name="text">
+      <string>Density (Right):</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="densityComboRight">
+     <item><property name="text"><string>A - Almost entirely fatty</string></property></item>
+     <item><property name="text"><string>B - Scattered fibroglandular</string></property></item>
+     <item><property name="text"><string>C - Heterogeneously dense</string></property></item>
+     <item><property name="text"><string>D - Extremely dense</string></property></item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="densityLabelLeft">
+     <property name="text">
+      <string>Density (Left):</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="densityComboLeft">
+     <item><property name="text"><string>A - Almost entirely fatty</string></property></item>
+     <item><property name="text"><string>B - Scattered fibroglandular</string></property></item>
+     <item><property name="text"><string>C - Heterogeneously dense</string></property></item>
+     <item><property name="text"><string>D - Extremely dense</string></property></item>
+    </widget>
+   </item>
+
+   <item>
+    <widget class="QPushButton" name="save_and_next">
+     <property name="text">
+      <string>Save and Next</string>
+     </property>
+    </widget>
+   </item>
+
   </layout>
  </widget>
-
  <customwidgets>
   <customwidget>
    <class>qMRMLWidget</class>

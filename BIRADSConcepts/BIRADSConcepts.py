@@ -30,13 +30,13 @@ class BIRADSConceptsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         ScriptedLoadableModuleWidget.setup(self)
         slicer.util.setDataProbeVisible(False)
 
-        # Load UI from file
         uiWidget = slicer.util.loadUI(self.resourcePath('UI/BIRADSConcepts.ui'))
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
         self.logic = BIRADSConceptsLogic()
         self.controller = ReaderStudyController(self.ui, self.logic)
+        self.controller.hideStudyWidgets()
 
 
 class BIRADSConceptsLogic:
@@ -47,9 +47,6 @@ class BIRADSConceptsLogic:
         self.info_csv_path = self.examples_breast_dir / "info_examples.csv"
 
         self.reader_df = pd.read_csv(self.reader_info_path)
-        # read with semicolon delimiter
-        self.cases_df = pd.read_csv(self.info_csv_path, delimiter=';')
-
         self.cases_df = pd.read_csv(self.info_csv_path, delimiter=';')
 
     def get_reader_cases(self, reader_name):
@@ -59,17 +56,12 @@ class BIRADSConceptsLogic:
 
         filtered = self.cases_df[self.cases_df['reader_ids'].astype(str).str.contains(str(reader_id))]
         cases = [g for _, g in filtered.groupby('study_id')]
-        print(f"{cases=}")
         return reader_id, cases
 
     def get_reader_id(self, reader_name):
-        match = self.reader_df[
-            self.reader_df['reader_name'].str.lower() == reader_name.lower()
-        ]
-        if not match.empty:
-            return match.iloc[0]['reader_id']
-        return None
-
+        match = self.reader_df[self.reader_df['reader_name'].str.lower() == reader_name.lower()]
+        return match.iloc[0]['reader_id'] if not match.empty else None
+    
 
 class ReaderStudyController:
     def __init__(self, ui, logic: BIRADSConceptsLogic):
@@ -79,10 +71,17 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.showDensitySection)
         self.ui.save_and_next.connect('clicked(bool)', self.saveAndNext)
+        self.ui.biradsComboRight.currentTextChanged.connect(self.onBiradsRightChanged)
+        self.ui.biradsComboLeft.currentTextChanged.connect(self.onBiradsLeftChanged)
 
-        self.hideStudyWidgets()
+        # self.hideSaveAndNext()
+        # self.hideStudyWidgets()
         slicer.util.setDataProbeVisible(False)
+
+    # def hideSaveAndNext(self):
+    #     self.ui.save_and_next.hide()
 
     def hideStudyWidgets(self):
         self.ui.instructionLabel.hide()
@@ -90,18 +89,42 @@ class ReaderStudyController:
         self.ui.biradsComboRight.hide()
         self.ui.biradsLabelLeft.hide()
         self.ui.biradsComboLeft.hide()
-        self.ui.status_checked.hide()
+        self.ui.biradsSubRight.hide()
+        self.ui.biradsSubLeft.hide()
+        self.ui.nextQuestionButton.hide()
+        self.ui.densityLabelRight.hide()
+        self.ui.densityComboRight.hide()
+        self.ui.densityLabelLeft.hide()
+        self.ui.densityComboLeft.hide()
         self.ui.save_and_next.hide()
-
-    def showStudyWidgets(self):
+        self.ui.status_checked.hide()
+    
+    def showBiradsSection(self):
+        self.ui.instructionLabel.setText("Please, read this case and provide the BI-RADS score per breast.")
         self.ui.instructionLabel.show()
         self.ui.biradsLabelRight.show()
         self.ui.biradsComboRight.show()
         self.ui.biradsLabelLeft.show()
         self.ui.biradsComboLeft.show()
+        self.ui.nextQuestionButton.show()
+
+    def showDensitySection(self):
+        self.ui.instructionLabel.setText("Please, assess the breast density per side.")
+        self.ui.biradsLabelRight.hide()
+        self.ui.biradsComboRight.hide()
+        self.ui.biradsLabelLeft.hide()
+        self.ui.biradsComboLeft.hide()
+        self.ui.nextQuestionButton.hide()
+        self.ui.biradsSubRight.hide()
+        self.ui.biradsSubLeft.hide()
+
+        self.ui.densityLabelRight.show()
+        self.ui.densityComboRight.show()
+        self.ui.densityLabelLeft.show()
+        self.ui.densityComboLeft.show()
         self.ui.status_checked.show()
         self.ui.save_and_next.show()
-
+    
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
         if not name:
@@ -115,10 +138,7 @@ class ReaderStudyController:
 
         self.caseList = grouped_cases
         self.currentCaseIndex = -1
-
         self.ui.readerInputGroup.hide()
-
-        self.showStudyWidgets()
         self.loadNextCase()
 
     def loadNextCase(self):
@@ -126,31 +146,23 @@ class ReaderStudyController:
         if self.currentCaseIndex >= len(self.caseList):
             qt.QMessageBox.information(slicer.util.mainWindow(), "Done", "All cases reviewed.")
             return
+        
+        self.hideStudyWidgets()
+
+        self.ui.biradsSubRight.setCurrentIndex(0)
+        self.ui.biradsSubLeft.setCurrentIndex(0)
 
         case_df = self.caseList[self.currentCaseIndex]
         study_id = case_df.iloc[0]['study_id']
         case_folder = self.logic.examples_breast_dir / study_id
-
         slicer.mrmlScene.Clear(0)
 
-        # Expected views
-        layout_map = {
-            ('R', 'CC'): 'RCC',
-            ('R', 'MLO'): 'RMLO',
-            ('L', 'CC'): 'LCC',
-            ('L', 'MLO'): 'LMLO'
-        }
-
+        layout_map = {('R', 'CC'): 'RCC', ('R', 'MLO'): 'RMLO', ('L', 'CC'): 'LCC', ('L', 'MLO'): 'LMLO'}
         volume_map = {}
         for _, row in case_df.iterrows():
-            lat = row['laterality']
-            view = row['view_position']
-            tag = layout_map.get((lat, view))
-            if not tag:
-                continue
+            tag = layout_map.get((row['laterality'], row['view_position']))
             dicom_file = case_folder / f"{row['image_id']}.dicom"
-            print(f"{dicom_file=}")
-            if dicom_file.exists():
+            if tag and dicom_file.exists():
                 success, node = slicer.util.loadVolume(str(dicom_file), returnNode=True)
                 if success:
                     volume_map[tag] = node
@@ -162,18 +174,42 @@ class ReaderStudyController:
 
         self.setupLayout(volume_map)
         self.updateStatusLabel()
+        self.ui.status_checked.show()
+        self.showBiradsSection()
     
+    def onBiradsRightChanged(self, text):
+        if text == "BI-RADS 4":
+            self.ui.biradsSubRight.show()
+        else:
+            self.ui.biradsSubRight.hide()
+    
+    def onBiradsLeftChanged(self, text):
+        if text == "BI-RADS 4":
+            self.ui.biradsSubLeft.show()
+        else:
+            self.ui.biradsSubLeft.hide()
+
     def saveAndNext(self):
-        # Retrieve per breast BI-RADS scores
         right_score = self.ui.biradsComboRight.currentText
         left_score = self.ui.biradsComboLeft.currentText
+        right_density = self.ui.densityComboRight.currentText
+        left_density = self.ui.densityComboLeft.currentText
+
+        if self.ui.biradsComboRight.currentText == "BI-RADS 4":
+            right_sub = self.ui.biradsSubRight.currentText
+        else:
+            right_sub = None
+        
+        if self.ui.biradsComboLeft.currentText == "BI-RADS 4":
+            left_sub = self.ui.biradsSubRight.currentText
+        else:
+            left_sub = None
 
         print(f"BI-RADS Right: {right_score}, Left: {left_score}")
-
-        # TODO: save this data to a file or structure as needed
+        print(f"Density Right: {right_density}, Left: {left_density}")
+        print(f"BI-RADS Right: {right_score} {right_sub}, Left: {left_score} {left_sub}")
 
         self.loadNextCase()
-
 
     def setupLayout(self, volume_map):
         layout_xml = """
@@ -207,3 +243,5 @@ class ReaderStudyController:
         total = len(self.caseList)
         current = self.currentCaseIndex + 1
         self.ui.status_checked.setText(f"Cases read: {current} / {total}")
+    
+    
