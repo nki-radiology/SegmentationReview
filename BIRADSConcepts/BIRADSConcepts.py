@@ -61,7 +61,7 @@ class BIRADSConceptsLogic:
     def get_reader_id(self, reader_name):
         match = self.reader_df[self.reader_df['reader_name'].str.lower() == reader_name.lower()]
         return match.iloc[0]['reader_id'] if not match.empty else None
-    
+
 
 class ReaderStudyController:
     def __init__(self, ui, logic: BIRADSConceptsLogic):
@@ -73,58 +73,37 @@ class ReaderStudyController:
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
         self.ui.nextQuestionButton.connect('clicked(bool)', self.showDensitySection)
         self.ui.save_and_next.connect('clicked(bool)', self.saveAndNext)
-        self.ui.biradsComboRight.currentTextChanged.connect(self.onBiradsRightChanged)
-        self.ui.biradsComboLeft.currentTextChanged.connect(self.onBiradsLeftChanged)
 
-        # self.hideSaveAndNext()
-        # self.hideStudyWidgets()
         slicer.util.setDataProbeVisible(False)
-
-    # def hideSaveAndNext(self):
-    #     self.ui.save_and_next.hide()
 
     def hideStudyWidgets(self):
         self.ui.instructionLabel.hide()
-        self.ui.biradsLabelRight.hide()
-        self.ui.biradsComboRight.hide()
-        self.ui.biradsLabelLeft.hide()
-        self.ui.biradsComboLeft.hide()
-        self.ui.biradsSubRight.hide()
-        self.ui.biradsSubLeft.hide()
+        self.ui.biradsRightGroup.hide()
+        self.ui.biradsLeftGroup.hide()
         self.ui.nextQuestionButton.hide()
-        self.ui.densityLabelRight.hide()
-        self.ui.densityComboRight.hide()
-        self.ui.densityLabelLeft.hide()
-        self.ui.densityComboLeft.hide()
+        self.ui.densityRightGroup.hide()
+        self.ui.densityLeftGroup.hide()
         self.ui.save_and_next.hide()
         self.ui.status_checked.hide()
-    
+
     def showBiradsSection(self):
         self.ui.instructionLabel.setText("Please, read this case and provide the BI-RADS score per breast.")
         self.ui.instructionLabel.show()
-        self.ui.biradsLabelRight.show()
-        self.ui.biradsComboRight.show()
-        self.ui.biradsLabelLeft.show()
-        self.ui.biradsComboLeft.show()
+        self.ui.status_checked.show()
+        self.ui.biradsRightGroup.show()
+        self.ui.biradsLeftGroup.show()
         self.ui.nextQuestionButton.show()
 
     def showDensitySection(self):
         self.ui.instructionLabel.setText("Please, assess the breast density per side.")
-        self.ui.biradsLabelRight.hide()
-        self.ui.biradsComboRight.hide()
-        self.ui.biradsLabelLeft.hide()
-        self.ui.biradsComboLeft.hide()
+        self.ui.biradsRightGroup.hide()
+        self.ui.biradsLeftGroup.hide()
         self.ui.nextQuestionButton.hide()
-        self.ui.biradsSubRight.hide()
-        self.ui.biradsSubLeft.hide()
 
-        self.ui.densityLabelRight.show()
-        self.ui.densityComboRight.show()
-        self.ui.densityLabelLeft.show()
-        self.ui.densityComboLeft.show()
-        self.ui.status_checked.show()
+        self.ui.densityRightGroup.show()
+        self.ui.densityLeftGroup.show()
         self.ui.save_and_next.show()
-    
+
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
         if not name:
@@ -146,11 +125,9 @@ class ReaderStudyController:
         if self.currentCaseIndex >= len(self.caseList):
             qt.QMessageBox.information(slicer.util.mainWindow(), "Done", "All cases reviewed.")
             return
-        
-        self.hideStudyWidgets()
 
-        self.ui.biradsSubRight.setCurrentIndex(0)
-        self.ui.biradsSubLeft.setCurrentIndex(0)
+        self.hideStudyWidgets()
+        self.clearRadioSelections()
 
         case_df = self.caseList[self.currentCaseIndex]
         study_id = case_df.iloc[0]['study_id']
@@ -174,42 +151,31 @@ class ReaderStudyController:
 
         self.setupLayout(volume_map)
         self.updateStatusLabel()
-        self.ui.status_checked.show()
         self.showBiradsSection()
-    
-    def onBiradsRightChanged(self, text):
-        if text == "BI-RADS 4":
-            self.ui.biradsSubRight.show()
-        else:
-            self.ui.biradsSubRight.hide()
-    
-    def onBiradsLeftChanged(self, text):
-        if text == "BI-RADS 4":
-            self.ui.biradsSubLeft.show()
-        else:
-            self.ui.biradsSubLeft.hide()
+
+    def clearRadioSelections(self):
+        for group in [self.ui.biradsRightGroup, self.ui.biradsLeftGroup, self.ui.densityRightGroup, self.ui.densityLeftGroup]:
+            for rb in group.findChildren(qt.QRadioButton):
+                rb.setAutoExclusive(False)
+                rb.setChecked(False)
+                rb.setAutoExclusive(True)
 
     def saveAndNext(self):
-        right_score = self.ui.biradsComboRight.currentText
-        left_score = self.ui.biradsComboLeft.currentText
-        right_density = self.ui.densityComboRight.currentText
-        left_density = self.ui.densityComboLeft.currentText
-
-        if self.ui.biradsComboRight.currentText == "BI-RADS 4":
-            right_sub = self.ui.biradsSubRight.currentText
-        else:
-            right_sub = None
-        
-        if self.ui.biradsComboLeft.currentText == "BI-RADS 4":
-            left_sub = self.ui.biradsSubRight.currentText
-        else:
-            left_sub = None
+        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
+        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
+        right_density = self.getSelectedButtonText(self.ui.densityRightGroup)
+        left_density = self.getSelectedButtonText(self.ui.densityLeftGroup)
 
         print(f"BI-RADS Right: {right_score}, Left: {left_score}")
         print(f"Density Right: {right_density}, Left: {left_density}")
-        print(f"BI-RADS Right: {right_score} {right_sub}, Left: {left_score} {left_sub}")
 
         self.loadNextCase()
+
+    def getSelectedButtonText(self, groupBox):
+        for button in groupBox.findChildren(qt.QRadioButton):
+            if button.isChecked():
+                return button.text
+        return None
 
     def setupLayout(self, volume_map):
         layout_xml = """
@@ -243,5 +209,3 @@ class ReaderStudyController:
         total = len(self.caseList)
         current = self.currentCaseIndex + 1
         self.ui.status_checked.setText(f"Cases read: {current} / {total}")
-    
-    

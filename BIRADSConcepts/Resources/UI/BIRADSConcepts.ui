@@ -55,52 +55,33 @@
     </widget>
    </item>
 
-   <!-- BI-RADS Scoring UI -->
    <item>
-    <widget class="QLabel" name="biradsLabelRight">
-     <property name="text">
+    <widget class="QGroupBox" name="biradsRightGroup">
+     <property name="title">
       <string>BI-RADS (Right):</string>
      </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="biradsComboRight">
-     <item><property name="text"><string>BI-RADS 1</string></property></item>
-     <item><property name="text"><string>BI-RADS 2</string></property></item>
-     <item><property name="text"><string>BI-RADS 3</string></property></item>
-     <item><property name="text"><string>BI-RADS 4</string></property></item>
-     <item><property name="text"><string>BI-RADS 5</string></property></item>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="biradsSubRight">
-     <item><property name="text"><string>4A</string></property></item>
-     <item><property name="text"><string>4B</string></property></item>
-     <item><property name="text"><string>4C</string></property></item>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="biradsRight1"><property name="text"><string>BI-RADS 1</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsRight2"><property name="text"><string>BI-RADS 2</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsRight3"><property name="text"><string>BI-RADS 3</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsRight4"><property name="text"><string>BI-RADS 4</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsRight5"><property name="text"><string>BI-RADS 5</string></property></widget></item>
+     </layout>
     </widget>
    </item>
 
    <item>
-    <widget class="QLabel" name="biradsLabelLeft">
-     <property name="text">
+    <widget class="QGroupBox" name="biradsLeftGroup">
+     <property name="title">
       <string>BI-RADS (Left):</string>
      </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="biradsComboLeft">
-     <item><property name="text"><string>BI-RADS 1</string></property></item>
-     <item><property name="text"><string>BI-RADS 2</string></property></item>
-     <item><property name="text"><string>BI-RADS 3</string></property></item>
-     <item><property name="text"><string>BI-RADS 4</string></property></item>
-     <item><property name="text"><string>BI-RADS 5</string></property></item>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="biradsSubLeft">
-     <item><property name="text"><string>4A</string></property></item>
-     <item><property name="text"><string>4B</string></property></item>
-     <item><property name="text"><string>4C</string></property></item>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="biradsLeft1"><property name="text"><string>BI-RADS 1</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsLeft2"><property name="text"><string>BI-RADS 2</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsLeft3"><property name="text"><string>BI-RADS 3</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsLeft4"><property name="text"><string>BI-RADS 4</string></property></widget></item>
+      <item><widget class="QRadioButton" name="biradsLeft5"><property name="text"><string>BI-RADS 5</string></property></widget></item>
+     </layout>
     </widget>
    </item>
 
@@ -112,36 +93,31 @@
     </widget>
    </item>
 
-   <!-- Density Assessment UI -->
-   
    <item>
-    <widget class="QLabel" name="densityLabelRight">
-     <property name="text">
+    <widget class="QGroupBox" name="densityRightGroup">
+     <property name="title">
       <string>Density (Right):</string>
      </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="densityRightA"><property name="text"><string>A - Almost entirely fatty</string></property></widget></item>
+      <item><widget class="QRadioButton" name="densityRightB"><property name="text"><string>B - Scattered fibroglandular</string></property></widget></item>
+      <item><widget class="QRadioButton" name="densityRightC"><property name="text"><string>C - Heterogeneously dense</string></property></widget></item>
+      <item><widget class="QRadioButton" name="densityRightD"><property name="text"><string>D - Extremely dense</string></property></widget></item>
+     </layout>
     </widget>
    </item>
+
    <item>
-    <widget class="QComboBox" name="densityComboRight">
-     <item><property name="text"><string>A - Almost entirely fatty</string></property></item>
-     <item><property name="text"><string>B - Scattered fibroglandular</string></property></item>
-     <item><property name="text"><string>C - Heterogeneously dense</string></property></item>
-     <item><property name="text"><string>D - Extremely dense</string></property></item>
-    </widget>
-   </item>
-   <item>
-    <widget class="QLabel" name="densityLabelLeft">
-     <property name="text">
+    <widget class="QGroupBox" name="densityLeftGroup">
+     <property name="title">
       <string>Density (Left):</string>
      </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="densityComboLeft">
-     <item><property name="text"><string>A - Almost entirely fatty</string></property></item>
-     <item><property name="text"><string>B - Scattered fibroglandular</string></property></item>
-     <item><property name="text"><string>C - Heterogeneously dense</string></property></item>
-     <item><property name="text"><string>D - Extremely dense</string></property></item>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="densityLeftA"><property name="text"><string>A - Almost entirely fatty</string></property></widget></item>
+      <item><widget class="QRadioButton" name="densityLeftB"><property name="text"><string>B - Scattered fibroglandular</string></property></widget></item>
+      <item><widget class="QRadioButton" name="densityLeftC"><property name="text"><string>C - Heterogeneously dense</string></property></widget></item>
+      <item><widget class="QRadioButton" name="densityLeftD"><property name="text"><string>D - Extremely dense</string></property></widget></item>
+     </layout>
     </widget>
    </item>
 
