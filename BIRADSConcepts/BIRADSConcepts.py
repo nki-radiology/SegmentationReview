@@ -79,21 +79,27 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
-        self.ui.save_and_next.connect('clicked(bool)', self.loadNextCase)
+        self.ui.save_and_next.connect('clicked(bool)', self.saveAndNext)
 
         self.hideStudyWidgets()
         slicer.util.setDataProbeVisible(False)
 
     def hideStudyWidgets(self):
-        self.ui.inputsCollapsibleButton.hide()
+        self.ui.instructionLabel.hide()
+        self.ui.biradsLabelRight.hide()
+        self.ui.biradsComboRight.hide()
+        self.ui.biradsLabelLeft.hide()
+        self.ui.biradsComboLeft.hide()
         self.ui.status_checked.hide()
-        self.ui.overwrite_mask.hide()
         self.ui.save_and_next.hide()
 
     def showStudyWidgets(self):
-        self.ui.inputsCollapsibleButton.show()
+        self.ui.instructionLabel.show()
+        self.ui.biradsLabelRight.show()
+        self.ui.biradsComboRight.show()
+        self.ui.biradsLabelLeft.show()
+        self.ui.biradsComboLeft.show()
         self.ui.status_checked.show()
-        self.ui.overwrite_mask.show()
         self.ui.save_and_next.show()
 
     def startStudy(self):
@@ -109,6 +115,9 @@ class ReaderStudyController:
 
         self.caseList = grouped_cases
         self.currentCaseIndex = -1
+
+        self.ui.readerInputGroup.hide()
+
         self.showStudyWidgets()
         self.loadNextCase()
 
@@ -153,6 +162,17 @@ class ReaderStudyController:
 
         self.setupLayout(volume_map)
         self.updateStatusLabel()
+    
+    def saveAndNext(self):
+        # Retrieve per breast BI-RADS scores
+        right_score = self.ui.biradsComboRight.currentText
+        left_score = self.ui.biradsComboLeft.currentText
+
+        print(f"BI-RADS Right: {right_score}, Left: {left_score}")
+
+        # TODO: save this data to a file or structure as needed
+
+        self.loadNextCase()
 
 
     def setupLayout(self, volume_map):
@@ -186,4 +206,4 @@ class ReaderStudyController:
     def updateStatusLabel(self):
         total = len(self.caseList)
         current = self.currentCaseIndex + 1
-        self.ui.status_checked.setText(f"Checked: {current} / {total}")
+        self.ui.status_checked.setText(f"Cases read: {current} / {total}")
