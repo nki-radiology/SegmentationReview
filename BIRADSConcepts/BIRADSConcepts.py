@@ -71,8 +71,8 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
-        self.ui.nextQuestionButton.connect('clicked(bool)', self.showDensitySection)
-        self.ui.save_and_next.connect('clicked(bool)', self.saveAndNext)
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateAndShowDensitySection)
+        self.ui.save_and_next.connect('clicked(bool)', self.validateAndSave)
 
         slicer.util.setDataProbeVisible(False)
 
@@ -93,6 +93,16 @@ class ReaderStudyController:
         self.ui.biradsRightGroup.show()
         self.ui.biradsLeftGroup.show()
         self.ui.nextQuestionButton.show()
+
+    def validateAndShowDensitySection(self):
+        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
+        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
+
+        if not right_score or not left_score:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS for both sides before continuing.")
+            return
+
+        self.showDensitySection()
 
     def showDensitySection(self):
         self.ui.instructionLabel.setText("Please, assess the breast density per side.")
@@ -160,11 +170,16 @@ class ReaderStudyController:
                 rb.setChecked(False)
                 rb.setAutoExclusive(True)
 
-    def saveAndNext(self):
-        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
-        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
+    def validateAndSave(self):
         right_density = self.getSelectedButtonText(self.ui.densityRightGroup)
         left_density = self.getSelectedButtonText(self.ui.densityLeftGroup)
+
+        if not right_density or not left_density:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select density for both sides before saving.")
+            return
+
+        right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
+        left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
 
         print(f"BI-RADS Right: {right_score}, Left: {left_score}")
         print(f"Density Right: {right_density}, Left: {left_density}")
