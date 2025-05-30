@@ -2,7 +2,7 @@ import pandas as pd
 import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-import qt, ctk
+import qt, ctk, vtk
 from pathlib import Path
 
 
@@ -74,6 +74,9 @@ class ReaderStudyController:
         self.ui.nextQuestionButton.connect('clicked(bool)', self.validateBiradsAndShowDensity)
         self.ui.save_and_next.connect('clicked(bool)', self.validateDensityAndShowMassAssessment)
 
+        self.ui.biradsRight4.toggled.connect(lambda: self.ui.biradsRight4SubGroup.show() if self.ui.biradsRight4.isChecked() else self.ui.biradsRight4SubGroup.hide())
+        self.ui.biradsLeft4.toggled.connect(lambda: self.ui.biradsLeft4SubGroup.show() if self.ui.biradsLeft4.isChecked() else self.ui.biradsLeft4SubGroup.hide())
+
         slicer.util.setDataProbeVisible(False)
 
     def hideStudyWidgets(self):
@@ -85,7 +88,8 @@ class ReaderStudyController:
         self.ui.densityLeftGroup.hide()
         self.ui.save_and_next.hide()
         self.ui.status_checked.hide()
-        self.ui.massRightGroup.hide()
+        self.ui.biradsRight4SubGroup.hide()
+        self.ui.biradsLeft4SubGroup.hide()
 
     def showBiradsSection(self):
         self.ui.instructionLabel.setText("Please, read this case and provide the BI-RADS score per breast.")
@@ -102,6 +106,13 @@ class ReaderStudyController:
         if not right_score or not left_score:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS for both sides before continuing.")
             return
+        if right_score == "BI-RADS 4" and not self.getSelectedButtonText(self.ui.biradsRight4SubGroup):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS 4 subcategory for the right breast.")
+            return
+        if left_score == "BI-RADS 4" and not self.getSelectedButtonText(self.ui.biradsLeft4SubGroup):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS 4 subcategory for the left breast.")
+            return
+        
 
         self.showDensitySection()
 
@@ -109,6 +120,8 @@ class ReaderStudyController:
         self.ui.instructionLabel.setText("Please, assess the breast density per side.")
         self.ui.biradsRightGroup.hide()
         self.ui.biradsLeftGroup.hide()
+        self.ui.biradsRight4SubGroup.hide()
+        self.ui.biradsLeft4SubGroup.hide()
         self.ui.nextQuestionButton.hide()
 
         self.ui.densityRightGroup.show()
@@ -122,15 +135,6 @@ class ReaderStudyController:
         if not right_density or not left_density:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select density for both sides before continuing.")
             return
-
-        self.showMassAssessment()
-
-    def showMassAssessment(self):
-        self.ui.instructionLabel.setText("Is there a mass in the right breast?")
-        self.ui.densityRightGroup.hide()
-        self.ui.densityLeftGroup.hide()
-        self.ui.save_and_next.hide()
-        self.ui.massRightGroup.show()
 
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
@@ -168,8 +172,8 @@ class ReaderStudyController:
             tag = layout_map.get((row['laterality'], row['view_position']))
             dicom_file = case_folder / f"{row['image_id']}.dicom"
             if tag and dicom_file.exists():
-                success, node = slicer.util.loadVolume(str(dicom_file), returnNode=True)
-                if success:
+                node = slicer.util.loadVolume(str(dicom_file))
+                if node:
                     volume_map[tag] = node
 
         if len(volume_map) != 4:
@@ -182,7 +186,11 @@ class ReaderStudyController:
         self.showBiradsSection()
 
     def clearRadioSelections(self):
-        for group in [self.ui.biradsRightGroup, self.ui.biradsLeftGroup, self.ui.densityRightGroup, self.ui.densityLeftGroup, self.ui.massRightGroup]:
+        for group in [
+            self.ui.biradsRightGroup, self.ui.biradsLeftGroup,
+            self.ui.densityRightGroup, self.ui.densityLeftGroup,
+            self.ui.biradsRight4SubGroup, self.ui.biradsLeft4SubGroup
+        ]:
             for rb in group.findChildren(qt.QRadioButton):
                 rb.setAutoExclusive(False)
                 rb.setChecked(False)
@@ -193,7 +201,7 @@ class ReaderStudyController:
             if button.isChecked():
                 return button.text
         return None
-
+    
     def setupLayout(self, volume_map):
         layout_xml = """
         <layout type="horizontal">
@@ -217,10 +225,55 @@ class ReaderStudyController:
             layout_node.AddLayoutDescription(layout_id, layout_xml)
         slicer.app.layoutManager().setLayout(layout_id)
 
+        flipTags = ["RCC", "RMLO", "LCC", "LMLO"]
+
         for tag, node in volume_map.items():
             sliceNode = slicer.util.getNode(tag)
             logic = slicer.app.applicationLogic().GetSliceLogic(sliceNode)
             logic.GetSliceCompositeNode().SetBackgroundVolumeID(node.GetID())
+
+            # Reset orientation to default
+            sliceNode.SetOrientationToDefault()
+            matrix = sliceNode.GetSliceToRAS()
+
+            # Reset matrix to identity and flip X if needed
+            for i in range(3):
+                for j in range(3):
+                    matrix.SetElement(i, j, 1.0 if i == j else 0.0)
+            if tag in flipTags:
+                matrix.SetElement(0, 0, -1.0)
+
+            sliceNode.UpdateMatrices()
+
+            # # Fit and zoom
+            # sliceWidget = slicer.app.layoutManager().sliceWidget(tag)
+            # logic = sliceWidget.sliceLogic()
+            # logic.FitSliceToAll()
+
+            # fov = sliceNode.GetFieldOfView()
+            # zoomFactor = 0.75  # Zoom in by reducing FOV
+            # sliceNode.SetFieldOfView(fov[0] * zoomFactor, fov[1] * zoomFactor, fov[2])
+            sliceWidget = slicer.app.layoutManager().sliceWidget(tag)
+            logic = sliceWidget.sliceLogic()
+            sliceNode = logic.GetSliceNode()
+
+            # Reset to default view
+            logic.FitSliceToAll()
+
+            # Apply controlled zoom (optional, e.g., zoom in by 15%)
+            fov = sliceNode.GetFieldOfView()
+            zoomFactor = 0.85
+            sliceNode.SetFieldOfView(fov[0] * zoomFactor, fov[1] * zoomFactor, fov[2])
+
+            # Recenter manually by resetting slice origin to center of image
+            center = logic.GetSliceCompositeNode().GetBackgroundVolumeID()
+            if center:
+                bounds = [0] * 6
+                slicer.util.getNode(center).GetRASBounds(bounds)
+                centerX = (bounds[0] + bounds[1]) / 2.0
+                centerY = (bounds[2] + bounds[3]) / 2.0
+                centerZ = (bounds[4] + bounds[5]) / 2.0
+                sliceNode.SetSliceOffset(centerZ)
 
     def updateStatusLabel(self):
         total = len(self.caseList)
