@@ -112,14 +112,6 @@
    </item>
 
    <item>
-    <widget class="QPushButton" name="nextQuestionButton">
-     <property name="text">
-      <string>Next Question</string>
-     </property>
-    </widget>
-   </item>
-
-   <item>
     <widget class="QGroupBox" name="densityRightGroup">
      <property name="title">
       <string>Density (Right):</string>
@@ -146,6 +138,124 @@
      </layout>
     </widget>
    </item>
+
+<item>
+  <widget class="QLabel" name="rightAssessmentLabel">
+    <property name="text">
+      <string>Now evaluate the right breast.</string>
+    </property>
+  </widget>
+</item>
+
+<item>
+  <widget class="QGroupBox" name="rightMassGroup">
+    <layout class="QVBoxLayout">
+      <item>
+        <widget class="QLabel" name="rightMassQuestionLabel">
+          <property name="text">
+            <string>Is there a mass?</string>
+          </property>
+        </widget>
+      </item>
+      <item>
+        <widget class="QRadioButton" name="massRightYes">
+          <property name="text">
+            <string>Yes</string>
+          </property>
+        </widget>
+      </item>
+      <item>
+        <widget class="QRadioButton" name="massRightNo">
+          <property name="text">
+            <string>No</string>
+          </property>
+        </widget>
+      </item>
+    </layout>
+  </widget>
+</item>
+
+<item>
+  <widget class="QGroupBox" name="rightMassShapeGroup">
+    <property name="title">
+      <string>Mass Shape</string>
+    </property>
+    <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="massShapeOval"><property name="text"><string>Oval</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massShapeRound"><property name="text"><string>Round</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massShapeIrregular"><property name="text"><string>Irregular</string></property></widget></item>
+    </layout>
+  </widget>
+</item>
+
+<item>
+  <widget class="QGroupBox" name="rightMassMarginGroup">
+    <property name="title">
+      <string>Mass Margin</string>
+    </property>
+    <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="massMarginCircumscribed"><property name="text"><string>Circumscribed</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massMarginObscured"><property name="text"><string>Obscured</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massMarginMicrolobulated"><property name="text"><string>Microlobulated</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massMarginIndistinct"><property name="text"><string>Indistinct</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massMarginSpiculated"><property name="text"><string>Spiculated</string></property></widget></item>
+    </layout>
+  </widget>
+</item>
+
+<item>
+  <widget class="QGroupBox" name="rightMassDensityGroup">
+    <property name="title">
+      <string>Mass Density</string>
+    </property>
+    <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="massDensityFat"><property name="text"><string>Fat</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massDensityLow"><property name="text"><string>Low</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massDensityEqual"><property name="text"><string>Equal</string></property></widget></item>
+      <item><widget class="QRadioButton" name="massDensityHigh"><property name="text"><string>High</string></property></widget></item>
+    </layout>
+  </widget>
+</item>
+
+<item>
+  <widget class="QGroupBox" name="rightMassFeaturesGroup">
+    <property name="title">
+      <string>Associated Features</string>
+    </property>
+    <layout class="QVBoxLayout">
+      <item><widget class="QCheckBox" name="featureSkinRetraction"><property name="text"><string>Skin retraction</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureNippleRetraction"><property name="text"><string>Nipple retraction</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureSkinThickening"><property name="text"><string>Skin thickening</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureTrabecularThickening"><property name="text"><string>Trabecular thickening</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureAxillaryAdenopathy"><property name="text"><string>Axillary adenopathy</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureArchitecturalDistortion"><property name="text"><string>Architectural distortion</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureCalcifications"><property name="text"><string>Calcifications</string></property></widget></item>
+      <item><widget class="QCheckBox" name="featureNone"><property name="text"><string>None of the above</string></property></widget></item>
+    </layout>
+  </widget>
+</item>
+
+
+   <item>
+    <widget class="QPushButton" name="nextQuestionButton">
+     <property name="text">
+      <string>Next Question</string>
+     </property>
+    </widget>
+   </item>
+
+<item>
+  <widget class="QFrame" name="segmentEditorFrame">
+    <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+    </property>
+    <layout class="QVBoxLayout" name="segmentEditorLayout"/>
+  </widget>
+</item>
+
 
    <item>
     <widget class="QPushButton" name="save_and_next">

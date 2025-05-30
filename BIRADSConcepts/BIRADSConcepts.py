@@ -1,6 +1,7 @@
 import pandas as pd
 import slicer
 from slicer.ScriptedLoadableModule import *
+import qSlicerSegmentationsModuleWidgetsPythonQt as SegWidgets
 from slicer.util import VTKObservationMixin
 import qt, ctk, vtk
 from pathlib import Path
@@ -34,8 +35,14 @@ class BIRADSConceptsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
+        segmentEditorFrame = self.ui.segmentEditorFrame
+        self.segmentEditorLayout = segmentEditorFrame.layout()
+        self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
+        self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
+        self.segmentEditorLayout.addWidget(self.segmentEditorWidget)
+
         self.logic = BIRADSConceptsLogic()
-        self.controller = ReaderStudyController(self.ui, self.logic)
+        self.controller = ReaderStudyController(self.ui, self.logic, self.segmentEditorWidget)
         self.controller.hideStudyWidgets()
 
 
@@ -64,18 +71,22 @@ class BIRADSConceptsLogic:
 
 
 class ReaderStudyController:
-    def __init__(self, ui, logic: BIRADSConceptsLogic):
+    def __init__(self, ui, logic: BIRADSConceptsLogic, segmentEditorWidget):
         self.ui = ui
         self.logic = logic
         self.caseList = []
         self.currentCaseIndex = -1
+        self.massPresenceRight = None
+        self.segmentEditorWidget = segmentEditorWidget
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
         self.ui.nextQuestionButton.connect('clicked(bool)', self.validateBiradsAndShowDensity)
-        self.ui.save_and_next.connect('clicked(bool)', self.validateDensityAndShowMassAssessment)
 
         self.ui.biradsRight4.toggled.connect(lambda: self.ui.biradsRight4SubGroup.show() if self.ui.biradsRight4.isChecked() else self.ui.biradsRight4SubGroup.hide())
         self.ui.biradsLeft4.toggled.connect(lambda: self.ui.biradsLeft4SubGroup.show() if self.ui.biradsLeft4.isChecked() else self.ui.biradsLeft4SubGroup.hide())
+
+        self.ui.massRightYes.toggled.connect(self.toggleMassSubmenus)
+        self.ui.massRightNo.toggled.connect(self.toggleMassSubmenus)
 
         slicer.util.setDataProbeVisible(False)
 
@@ -90,6 +101,13 @@ class ReaderStudyController:
         self.ui.status_checked.hide()
         self.ui.biradsRight4SubGroup.hide()
         self.ui.biradsLeft4SubGroup.hide()
+        self.ui.rightAssessmentLabel.hide()
+        self.ui.rightMassGroup.hide()
+        self.ui.rightMassShapeGroup.hide()
+        self.ui.rightMassMarginGroup.hide()
+        self.ui.rightMassDensityGroup.hide()
+        self.ui.rightMassFeaturesGroup.hide()
+        self.segmentEditorWidget.hide()
 
     def showBiradsSection(self):
         self.ui.instructionLabel.setText("Please, read this case and provide the BI-RADS score per breast.")
@@ -100,6 +118,9 @@ class ReaderStudyController:
         self.ui.nextQuestionButton.show()
 
     def validateBiradsAndShowDensity(self):
+        self.ui.nextQuestionButton.show()  # Reuse this button for density transition
+        self.ui.save_and_next.hide()       # Ensure Save and Next is hidden
+
         right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
         left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
 
@@ -113,7 +134,11 @@ class ReaderStudyController:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS 4 subcategory for the left breast.")
             return
         
-
+        self.ui.nextQuestionButton.clicked.disconnect()  # Disconnect any previous connections
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateDensity)
+        
+        self.ui.nextQuestionButton.clicked.disconnect()
+        self.ui.nextQuestionButton.clicked.connect(self.validateDensity)
         self.showDensitySection()
 
     def showDensitySection(self):
@@ -122,19 +147,138 @@ class ReaderStudyController:
         self.ui.biradsLeftGroup.hide()
         self.ui.biradsRight4SubGroup.hide()
         self.ui.biradsLeft4SubGroup.hide()
-        self.ui.nextQuestionButton.hide()
 
         self.ui.densityRightGroup.show()
         self.ui.densityLeftGroup.show()
-        self.ui.save_and_next.show()
+        self.ui.nextQuestionButton.setText("Go to right breast assessment")
+        self.ui.nextQuestionButton.show()
+        self.ui.save_and_next.hide()
 
-    def validateDensityAndShowMassAssessment(self):
+    def validateDensity(self):
         right_density = self.getSelectedButtonText(self.ui.densityRightGroup)
         left_density = self.getSelectedButtonText(self.ui.densityLeftGroup)
 
         if not right_density or not left_density:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select density for both sides before continuing.")
             return
+        
+        self.ui.nextQuestionButton.clicked.disconnect()
+        self.ui.nextQuestionButton.clicked.connect(self.validateRightMass)
+
+        self.showRightBreastAssessment()
+    
+    def showRightBreastAssessment(self):
+        self.ui.instructionLabel.hide()
+        self.ui.densityRightGroup.hide()
+        self.ui.densityLeftGroup.hide()
+        self.ui.rightAssessmentLabel.show()
+        self.ui.rightMassGroup.show()
+
+        self.ui.nextQuestionButton.setText("Next Question")
+        self.ui.nextQuestionButton.clicked.disconnect()
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateRightMass)
+    
+    def validateRightMass(self):
+        is_mass = self.getSelectedButtonText(self.ui.rightMassGroup)
+
+        if not is_mass:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select Yes or No for mass presence.")
+            return
+        
+        self.massPresenceRight = is_mass
+        print(f"Mass presence (right breast): {self.massPresenceRight}")
+
+        self.ui.rightMassGroup.hide()
+
+        if is_mass.lower() == "yes":
+            # Show submenus
+            self.ui.rightMassShapeGroup.show()
+            self.ui.rightMassMarginGroup.show()
+            self.ui.rightMassDensityGroup.show()
+            self.ui.rightMassFeaturesGroup.show()
+
+            if not self.getSelectedButtonText(self.ui.rightMassShapeGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass shape.")
+                return
+            if not self.getSelectedButtonText(self.ui.rightMassMarginGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass margin.")
+                return
+            if not self.getSelectedButtonText(self.ui.rightMassDensityGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass density.")
+                return
+
+            # Validate associated features
+            features = [
+                self.ui.featureSkinRetraction, self.ui.featureNippleRetraction,
+                self.ui.featureSkinThickening, self.ui.featureTrabecularThickening,
+                self.ui.featureAxillaryAdenopathy, self.ui.featureArchitecturalDistortion,
+                self.ui.featureCalcifications, self.ui.featureNone
+            ]
+            selected = [cb for cb in features if cb.isChecked()]
+            if not selected:
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select at least one associated feature.")
+                return
+            if self.ui.featureNone.isChecked() and len(selected) > 1:
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Conflict", "'None of the above' cannot be selected with other options.")
+                return
+
+
+            self.ui.instructionLabel.setText(
+                "Please segment the mass in the R-CC view.\n" \
+                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function."
+            )
+            self.ui.instructionLabel.show()
+            self.launchSegmentEditorForRCC()
+        else:
+            pass
+    
+    def toggleMassSubmenus(self):
+        is_yes = self.ui.massRightYes.isChecked()
+        self.ui.rightMassShapeGroup.setVisible(is_yes)
+        self.ui.rightMassMarginGroup.setVisible(is_yes)
+        self.ui.rightMassDensityGroup.setVisible(is_yes)
+        self.ui.rightMassFeaturesGroup.setVisible(is_yes)
+    
+    def launchSegmentEditorForRCC(self):
+        # Retrieve RCC volume from the stored volume map
+        try:
+            rccNode = self.volume_map['RCC']
+        except KeyError:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Missing RCC", "No RCC volume loaded.")
+            return
+
+        # Switch to a single slice view layout
+        slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
+        slicer.util.setSliceViewerLayers(background=rccNode)
+
+        # Get or create a Segment Editor node
+        segmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
+        if not segmentEditorNode:
+            segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+
+        # Create a new Segmentation Node
+        segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+        segmentationNode.SetName("RightBreastSegmentations")
+
+        if not segmentationNode.GetDisplayNode():
+            segmentationNode.CreateDefaultDisplayNodes()
+
+        segmentation_mass = segmentationNode.GetSegmentation()
+        segmentID = segmentation_mass.AddEmptySegment("Mass")
+
+        # Use embedded widget (in the custom UI layout)
+        self.segmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
+        self.segmentEditorWidget.setSegmentationNode(segmentationNode)
+        self.segmentEditorWidget.setSourceVolumeNode(rccNode)
+
+        # Restrict visible tools to only the desired ones
+        self.segmentEditorWidget.unorderedEffectsVisible = False
+        self.segmentEditorWidget.setEffectNameOrder(["Threshold", "Paint", "Erase", "Smoothing"])
+
+        # Activate the Threshold tool by default
+        # self.segmentEditorWidget.setActiveEffectByName("Threshold")
+        self.segmentEditorWidget.show()
+
 
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
@@ -203,6 +347,7 @@ class ReaderStudyController:
         return None
     
     def setupLayout(self, volume_map):
+        self.volume_map = volume_map
         layout_xml = """
         <layout type="horizontal">
         <item>
