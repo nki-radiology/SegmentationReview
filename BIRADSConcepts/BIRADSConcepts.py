@@ -2,6 +2,7 @@ import pandas as pd
 import slicer
 from slicer.ScriptedLoadableModule import *
 import qSlicerSegmentationsModuleWidgetsPythonQt as SegWidgets
+import vtkSegmentationCorePython as vtkSegCore
 from slicer.util import VTKObservationMixin
 import qt, ctk, vtk
 from pathlib import Path
@@ -264,7 +265,7 @@ class ReaderStudyController:
             segmentationNode.CreateDefaultDisplayNodes()
 
         segmentation_mass = segmentationNode.GetSegmentation()
-        segmentID = segmentation_mass.AddEmptySegment("Mass")
+        massSegmentID = segmentation_mass.AddEmptySegment("Mass")
 
         # Use embedded widget (in the custom UI layout)
         self.segmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
@@ -277,8 +278,58 @@ class ReaderStudyController:
 
         # Activate the Threshold tool by default
         # self.segmentEditorWidget.setActiveEffectByName("Threshold")
-        self.segmentEditorWidget.show()
+        # Hide mass assessment submenus
+        self.ui.rightAssessmentLabel.hide()
+        self.ui.rightMassGroup.hide()
+        self.ui.rightMassShapeGroup.hide()
+        self.ui.rightMassMarginGroup.hide()
+        self.ui.rightMassDensityGroup.hide()
+        self.ui.rightMassFeaturesGroup.hide()
 
+        self.segmentEditorWidget.show()
+        self.ui.nextQuestionButton.setText("Save mass segmentation")
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+        self.ui.nextQuestionButton.clicked.connect(self.segmentMargins)
+
+        if self.massPresenceRight.lower() == "yes":
+            qt.QMessageBox.information(slicer.util.mainWindow(), "Segmentation required", "Please segment the mass in the R-CC view.")
+    
+    def segmentMargins(self):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        if not segmentationNode:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Error", "No segmentation node found.")
+            return
+
+        massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Mass")
+        if self.isSegmentEmpty(segmentationNode, massID):
+            qt.QMessageBox.warning(
+                slicer.util.mainWindow(),
+                "Empty Segment",
+                "Mass segment is empty. Please complete the mass segmentation before proceeding."
+            )
+            return
+
+        # Proceed to margins
+        qt.QMessageBox.information(slicer.util.mainWindow(), "Next Segmentation", "Please segment the margins of the mass in the R-CC view.")
+        self.ui.nextQuestionButton.setText("Save margins segmentation")
+        self.ui.instructionLabel.setText("Please segment the margins of the mass in the R-CC view.\nTip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+
+        rccNode = self.volume_map.get("RCC")
+        if not rccNode:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Missing volume", "R-CC view not found.")
+            return
+
+        marginsSegmentID = segmentationNode.GetSegmentation().AddEmptySegment("Margins")
+        self.segmentEditorWidget.setCurrentSegmentID(marginsSegmentID)
+
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+        # self.ui.nextQuestionButton.clicked.connect(self.finalizeMassSegmentation)
 
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
@@ -328,6 +379,20 @@ class ReaderStudyController:
         self.setupLayout(volume_map)
         self.updateStatusLabel()
         self.showBiradsSection()
+    
+    def isSegmentEmpty(self, segmentationNode, segmentID):
+        labelmap = vtkSegCore.vtkOrientedImageData()
+        slicer.vtkSlicerSegmentationsModuleLogic.GetSegmentBinaryLabelmapRepresentation(
+            segmentationNode, segmentID, labelmap
+        )
+
+        extent = labelmap.GetExtent()
+        for z in range(extent[4], extent[5] + 1):
+            for y in range(extent[2], extent[3] + 1):
+                for x in range(extent[0], extent[1] + 1):
+                    if labelmap.GetScalarComponentAsDouble(x, y, z, 0) != 0:
+                        return False
+        return True
 
     def clearRadioSelections(self):
         for group in [
@@ -348,6 +413,7 @@ class ReaderStudyController:
     
     def setupLayout(self, volume_map):
         self.volume_map = volume_map
+        layout_id = 501
         layout_xml = """
         <layout type="horizontal">
         <item>
@@ -364,7 +430,6 @@ class ReaderStudyController:
         </item>
         </layout>
         """
-        layout_id = 501
         layout_node = slicer.app.layoutManager().layoutLogic().GetLayoutNode()
         if not layout_node.GetLayoutDescription(layout_id):
             layout_node.AddLayoutDescription(layout_id, layout_xml)

@@ -235,15 +235,6 @@
   </widget>
 </item>
 
-
-   <item>
-    <widget class="QPushButton" name="nextQuestionButton">
-     <property name="text">
-      <string>Next Question</string>
-     </property>
-    </widget>
-   </item>
-
 <item>
   <widget class="QFrame" name="segmentEditorFrame">
     <property name="frameShape">
@@ -256,6 +247,13 @@
   </widget>
 </item>
 
+   <item>
+    <widget class="QPushButton" name="nextQuestionButton">
+     <property name="text">
+      <string>Next Question</string>
+     </property>
+    </widget>
+   </item>
 
    <item>
     <widget class="QPushButton" name="save_and_next">
