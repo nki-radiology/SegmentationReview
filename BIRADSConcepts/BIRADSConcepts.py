@@ -296,28 +296,225 @@ class ReaderStudyController:
         self.ui.rightMassMarginGroup.hide()
         self.ui.rightMassDensityGroup.hide()
         self.ui.rightMassFeaturesGroup.hide()
+        self.ui.asymmetryGroup.hide()
+        self.ui.asymmetrySubtypeGroup.hide()
+        self.ui.archDistortionGroup.hide()
+        self.ui.calcificationsGroup.hide()
+        self.ui.calcificationsMorphologyGroup.hide()
+        self.ui.suspiciousMorphologySubGroup.hide()
+        self.ui.calcificationsDistributionGroup.hide()
 
-        if is_mass.lower() == "yes":
-            self.ui.instructionLabel.setText(
-                "Please segment the mass in the R-CC view.\n" \
-                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function."
-            )
-            self.ui.instructionLabel.show()
-            self.launchSegmentEditorForRCC()
+        self.startRightBreastSegmentationSequence()
+
+        # if is_mass.lower() == "yes":
+        #     self.ui.instructionLabel.setText(
+        #         "Please segment the mass in the R-CC view.\n" \
+        #         "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function."
+        #     )
+        #     self.ui.instructionLabel.show()
+        #     self.launchSegmentEditorForRCC()
+        # else:
+        #     self.ui.rightAssessmentLabel.hide()
+        #     self.ui.asymmetryGroup.hide()
+        #     self.ui.asymmetrySubtypeGroup.hide()
+        #     self.ui.archDistortionGroup.hide()
+        #     self.ui.calcificationsGroup.hide()
+        #     self.ui.calcificationsMorphologyGroup.hide()
+        #     self.ui.calcificationsDistributionGroup.hide()
+        #     self.ui.nextQuestionButton.setText("Continue")
+        #     try:
+        #         self.ui.nextQuestionButton.clicked.disconnect()
+        #     except TypeError:
+        #         pass
+        #     self.ui.nextQuestionButton.clicked.connect(lambda: qt.QMessageBox.information(slicer.util.mainWindow(), "Next Step", "Proceeding to next phase."))
+   
+    # def startRightBreastSegmentationSequence(self):
+    #     self.segmentationQueue = []
+
+    #     if self.ui.massRightYes.isChecked():
+    #         self.segmentationQueue.append(self.segmentMassWithMarginsAndFeatures)
+
+    #     if self.ui.asymmetryYes.isChecked():
+    #         self.segmentationQueue.append(self.segmentAsymmetry)
+
+    #     if not self.ui.massRightYes.isChecked() and self.ui.architecturalDistortionYes.isChecked():
+    #         self.segmentationQueue.append(self.segmentDistortion)
+
+    #     if self.ui.calcificationsYes.isChecked():
+    #         self.segmentationQueue.append(self.segmentCalcifications)
+
+    #     self.runNextSegmentationTask()
+ 
+    def startRightBreastSegmentationSequence(self):
+        self.segmentationQueue = []
+
+        if self.ui.massRightYes.isChecked():
+            self.segmentationQueue.append(self.segmentMassWithMarginsAndFeatures)
+            if self.ui.asymmetryYes.isChecked():
+                self.segmentationQueue.append(self.segmentAsymmetry)
+                if self.ui.calcificationsYes.isChecked():
+                    self.segmentationQueue.append(self.segmentCalcifications)
+            else:
+                if self.ui.calcificationsYes.isChecked():
+                   self.segmentationQueue.append(self.segmentCalcifications)
         else:
-            self.ui.rightAssessmentLabel.hide()
-            self.ui.asymmetryGroup.hide()
-            self.ui.asymmetrySubtypeGroup.hide()
-            self.ui.archDistortionGroup.hide()
-            self.ui.calcificationsGroup.hide()
-            self.ui.calcificationsMorphologyGroup.hide()
-            self.ui.calcificationsDistributionGroup.hide()
+            if self.ui.asymmetryYes.isChecked():
+                self.segmentationQueue.append(self.segmentAsymmetry)
+                if self.ui.architecturalDistortionYes.isChecked():
+                    self.segmentationQueue.append(self.segmentDistortion)
+                if self.ui.calcificationsYes.isChecked():
+                       self.segmentationQueue.append(self.segmentCalcifications) 
+                else:
+                   if self.ui.calcificationsYes.isChecked():
+                       self.segmentationQueue.append(self.segmentCalcifications)
+            else:
+                if self.ui.architecturalDistortionYes.isChecked():
+                    self.segmentationQueue.append(self.segmentDistortion)
+                if self.ui.calcificationsYes.isChecked():
+                       self.segmentationQueue.append(self.segmentCalcifications) 
+                else:
+                   if self.ui.calcificationsYes.isChecked():
+                       self.segmentationQueue.append(self.segmentCalcifications) 
+
+        self.runNextSegmentationTask()
+
+    def runNextSegmentationTask(self):
+        if not self.segmentationQueue:
             self.ui.nextQuestionButton.setText("Continue")
+            self.ui.instructionLabel.setText("All required segmentations complete. Proceed to the next step.")
             try:
                 self.ui.nextQuestionButton.clicked.disconnect()
             except TypeError:
                 pass
             self.ui.nextQuestionButton.clicked.connect(lambda: qt.QMessageBox.information(slicer.util.mainWindow(), "Next Step", "Proceeding to next phase."))
+            return
+
+        nextTask = self.segmentationQueue.pop(0)
+        nextTask()
+
+    def segmentMassWithMarginsAndFeatures(self):
+        self.ui.instructionLabel.show()
+        self.ui.instructionLabel.setText(f"Please segment the mass in the R-CC view.\n" \
+                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+        self.ui.nextQuestionButton.setText("Save mass segmentation")
+        self.launchSegmentEditorForRCC("Mass")
+
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+
+        self.ui.nextQuestionButton.clicked.connect(self.validateMassSegmentation)
+
+    def validateMassSegmentation(self):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Mass")
+        if self.isSegmentEmpty(segmentationNode, massID, self.referenceVolumeNode):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Mass segment is empty. Please complete it.")
+            return
+
+        self.segmentMargins()
+
+    def segmentMargins(self):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        marginsSegmentID = segmentationNode.GetSegmentation().AddEmptySegment("Margins")
+        self.segmentEditorWidget.setCurrentSegmentID(marginsSegmentID)
+        self.ui.instructionLabel.show()
+        self.ui.instructionLabel.setText(f"Please segment the margins of the mass in the R-CC view.\n" \
+                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+
+        self.ui.nextQuestionButton.setText("Save margins segmentation")
+
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+
+        self.ui.nextQuestionButton.clicked.connect(self.validateMarginsSegmentation)
+
+    def validateMarginsSegmentation(self):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Margins")
+        if self.isSegmentEmpty(segmentationNode, marginsID, self.referenceVolumeNode):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Margins segment is empty. Please complete it.")
+            return
+
+        if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text not in ["None of the above", "Axillary adenopathy"]):
+            self.associatedFeaturesToSegment = self.getSelectedFeatures()
+            self.currentFeatureIndex = 0
+            self.segmentNextFeatureInQueue()
+        else:
+            self.runNextSegmentationTask()
+
+    def segmentNextFeatureInQueue(self):
+        if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
+            self.runNextSegmentationTask()
+            return
+
+        feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
+        self.currentFeatureIndex += 1
+
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        segmentID = segmentationNode.GetSegmentation().AddEmptySegment(feature)
+        self.segmentEditorWidget.setCurrentSegmentID(segmentID)
+
+        self.ui.instructionLabel.show()
+        self.ui.instructionLabel.setText(f"Please segment the {feature} in the R-CC view.\n" \
+                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+        self.ui.nextQuestionButton.setText(f"Save {feature} segmentation")
+
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateFeatureSegmentation(segmentID, feature))
+
+    def validateFeatureSegmentation(self, segmentID, feature):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", f"{feature} segment is empty. Please complete it.")
+            return
+
+        self.segmentNextFeatureInQueue()
+
+    def segmentAsymmetry(self):
+        self.startGenericSegmentation("Asymmetry")
+
+    def segmentDistortion(self):
+        self.startGenericSegmentation("MainDistortion")
+
+    def segmentCalcifications(self):
+        self.startGenericSegmentation("MainCalcifications")
+
+    def startGenericSegmentation(self, name):
+        self.ui.instructionLabel.show()
+        self.ui.instructionLabel.setText(f"Please segment the {name} in the R-CC view.\n" \
+                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+        self.ui.nextQuestionButton.setText(f"Save {name} segmentation")
+
+        self.launchSegmentEditorForRCC(name)
+
+        # segmentationNode = self.segmentEditorWidget.segmentationNode()
+        # segmentID = segmentationNode.GetSegmentation().AddEmptySegment(name)
+        # self.segmentEditorWidget.setCurrentSegmentID(segmentID)
+
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+        
+        print(f"SegmentID in startGenericSegmentation: {name}")
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateGenericSegmentation(name))
+
+    def validateGenericSegmentation(self, segmentID):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Segment is empty. Please complete it.")
+            return
+
+        self.runNextSegmentationTask()
+
    
     def toggleMassSubmenus(self):
         is_yes = self.ui.massRightYes.isChecked()
@@ -326,8 +523,7 @@ class ReaderStudyController:
         self.ui.rightMassDensityGroup.setVisible(is_yes)
         self.ui.rightMassFeaturesGroup.setVisible(is_yes)
     
-    def launchSegmentEditorForRCC(self):
-        # Retrieve RCC volume from the stored volume map
+    def launchSegmentEditorForRCC(self, initialSegmentName=None):
         self.ensureCustomLayoutAvailable()
 
         try:
@@ -337,109 +533,31 @@ class ReaderStudyController:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Missing RCC", "No RCC volume loaded.")
             return
 
-        # Switch to a single slice view layout
         slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
         slicer.util.setSliceViewerLayers(background=rccNode)
 
-        # Get or create a Segment Editor node
         segmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
         if not segmentEditorNode:
             segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
 
-        # Create a new Segmentation Node
-        segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-        segmentationNode.SetName("RightBreastSegmentations")
-
-        if not segmentationNode.GetDisplayNode():
+        segmentationNode = slicer.mrmlScene.GetFirstNodeByName("RightBreastSegmentations")
+        if not segmentationNode:
+            segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+            segmentationNode.SetName("RightBreastSegmentations")
             segmentationNode.CreateDefaultDisplayNodes()
 
-        segmentation_mass = segmentationNode.GetSegmentation()
-        massSegmentID = segmentation_mass.AddEmptySegment("Mass")
-
-        # Use embedded widget (in the custom UI layout)
         self.segmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
         self.segmentEditorWidget.setSegmentationNode(segmentationNode)
         self.segmentEditorWidget.setSourceVolumeNode(rccNode)
 
-        # Restrict visible tools to only the desired ones
         self.segmentEditorWidget.unorderedEffectsVisible = False
         self.segmentEditorWidget.setEffectNameOrder(["Threshold", "Paint", "Erase", "Smoothing"])
 
-        # Hide mass assessment submenus
-        self.ui.rightAssessmentLabel.hide()
-        self.ui.rightMassGroup.hide()
-        self.ui.rightMassShapeGroup.hide()
-        self.ui.rightMassMarginGroup.hide()
-        self.ui.rightMassDensityGroup.hide()
-        self.ui.rightMassFeaturesGroup.hide()
-
         self.segmentEditorWidget.show()
-        self.ui.nextQuestionButton.setText("Save mass segmentation")
-        try:
-            self.ui.nextQuestionButton.clicked.disconnect()
-        except TypeError:
-            pass
-        self.ui.nextQuestionButton.clicked.connect(self.segmentMargins)
 
-        if self.massPresenceRight.lower() == "yes":
-            qt.QMessageBox.information(slicer.util.mainWindow(), "Segmentation required", "Please segment the mass in the R-CC view.")
-    
-    def segmentMargins(self):
-        segmentationNode = self.segmentEditorWidget.segmentationNode()
-        if not segmentationNode:
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Error", "No segmentation node found.")
-            return
-
-        massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Mass")
-
-        if self.isSegmentEmpty(segmentationNode, massID, self.referenceVolumeNode):
-            qt.QMessageBox.warning(
-                slicer.util.mainWindow(),
-                "Empty Segment",
-                "Mass segment is empty. Please complete the mass segmentation before proceeding."
-            )
-            return
-
-        # Proceed to margins
-        qt.QMessageBox.information(slicer.util.mainWindow(), "Next Segmentation", "Please segment the margins of the mass in the R-CC view.")
-        self.ui.nextQuestionButton.setText("Save margins segmentation")
-        self.ui.instructionLabel.setText("Please segment the margins of the mass in the R-CC view.\nTip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-
-        rccNode = self.volume_map.get("RCC")
-        if not rccNode:
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Missing volume", "R-CC view not found.")
-            return
-        
-        self.segmentEditorWidget.setCurrentSegmentID("") # Deselect current segment
-
-        marginsSegmentID = segmentationNode.GetSegmentation().AddEmptySegment("Margins")
-        self.segmentEditorWidget.setCurrentSegmentID(marginsSegmentID)
-
-        try:
-            self.ui.nextQuestionButton.clicked.disconnect()
-        except TypeError:
-            pass
-        
-        def saveMarginsAndContinue():
-            # Re-check if margins were actually segmented
-            if self.isSegmentEmpty(segmentationNode, marginsSegmentID, self.referenceVolumeNode):
-                qt.QMessageBox.warning(
-                    slicer.util.mainWindow(),
-                    "Empty Segment",
-                    "Margins segment is empty. Please complete the margins segmentation before proceeding."
-                )
-                return
-
-            # Determine next step based on selected features
-            noneSelected = any(cb.text == "None of the above" and cb.isChecked()
-                            for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox))
-            if noneSelected:
-                # self.prepareForRMLO()
-                pass
-            else:
-                self.handleFeatureSegmentationStart()
-
-        self.ui.nextQuestionButton.clicked.connect(saveMarginsAndContinue)
+        if initialSegmentName:
+            segmentID = segmentationNode.GetSegmentation().AddEmptySegment(initialSegmentName)
+            self.segmentEditorWidget.setCurrentSegmentID(segmentID)
     
     def updateAssociatedFeatureSelections(self):
         if self.ui.featureNone.isChecked():
@@ -660,7 +778,6 @@ class ReaderStudyController:
             return
 
         self.segmentNextFeature()
-
 
     def clearRadioSelections(self):
         for group in [
