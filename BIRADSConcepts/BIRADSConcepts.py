@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -79,6 +80,7 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
         self.massPresenceRight = None
         self.segmentEditorWidget = segmentEditorWidget
+        
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
         self.ui.nextQuestionButton.connect('clicked(bool)', self.validateBiradsAndShowDensity)
@@ -90,6 +92,11 @@ class ReaderStudyController:
         self.ui.massRightNo.toggled.connect(self.toggleMassSubmenus)
 
         slicer.util.setDataProbeVisible(False)
+
+        self.ui.featureNone.toggled.connect(self.updateAssociatedFeatureSelections)
+        for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
+            if checkbox != self.ui.featureNone:
+                checkbox.toggled.connect(self.ensureNoneNotChecked)
 
     def hideStudyWidgets(self):
         self.ui.instructionLabel.hide()
@@ -242,8 +249,11 @@ class ReaderStudyController:
     
     def launchSegmentEditorForRCC(self):
         # Retrieve RCC volume from the stored volume map
+        self.ensureCustomLayoutAvailable()
+
         try:
             rccNode = self.volume_map['RCC']
+            self.referenceVolumeNode = rccNode
         except KeyError:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Missing RCC", "No RCC volume loaded.")
             return
@@ -304,7 +314,8 @@ class ReaderStudyController:
             return
 
         massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Mass")
-        if self.isSegmentEmpty(segmentationNode, massID):
+
+        if self.isSegmentEmpty(segmentationNode, massID, self.referenceVolumeNode):
             qt.QMessageBox.warning(
                 slicer.util.mainWindow(),
                 "Empty Segment",
@@ -321,6 +332,8 @@ class ReaderStudyController:
         if not rccNode:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Missing volume", "R-CC view not found.")
             return
+        
+        self.segmentEditorWidget.setCurrentSegmentID("") # Deselect current segment
 
         marginsSegmentID = segmentationNode.GetSegmentation().AddEmptySegment("Margins")
         self.segmentEditorWidget.setCurrentSegmentID(marginsSegmentID)
@@ -329,8 +342,39 @@ class ReaderStudyController:
             self.ui.nextQuestionButton.clicked.disconnect()
         except TypeError:
             pass
-        # self.ui.nextQuestionButton.clicked.connect(self.finalizeMassSegmentation)
+        
+        def saveMarginsAndContinue():
+            # Re-check if margins were actually segmented
+            if self.isSegmentEmpty(segmentationNode, marginsSegmentID, self.referenceVolumeNode):
+                qt.QMessageBox.warning(
+                    slicer.util.mainWindow(),
+                    "Empty Segment",
+                    "Margins segment is empty. Please complete the margins segmentation before proceeding."
+                )
+                return
 
+            # Determine next step based on selected features
+            noneSelected = any(cb.text == "None of the above" and cb.isChecked()
+                            for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox))
+            if noneSelected:
+                # self.prepareForRMLO()
+                pass
+            else:
+                self.handleFeatureSegmentationStart()
+
+        self.ui.nextQuestionButton.clicked.connect(saveMarginsAndContinue)
+    
+    def updateAssociatedFeatureSelections(self):
+        if self.ui.featureNone.isChecked():
+            for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
+                if cb != self.ui.featureNone:
+                    cb.setChecked(False)
+
+    def ensureNoneNotChecked(self):
+        if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
+            self.ui.featureNone.setChecked(False)
+
+            
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
         if not name:
@@ -346,6 +390,56 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
         self.ui.readerInputGroup.hide()
         self.loadNextCase()
+
+    # def loadNextCase(self):
+    #     self.currentCaseIndex += 1
+    #     if self.currentCaseIndex >= len(self.caseList):
+    #         qt.QMessageBox.information(slicer.util.mainWindow(), "Done", "All cases reviewed.")
+    #         return
+
+    #     self.hideStudyWidgets()
+    #     self.clearRadioSelections()
+
+    #     case_df = self.caseList[self.currentCaseIndex]
+    #     study_id = case_df.iloc[0]['study_id']
+    #     case_folder = self.logic.examples_breast_dir / study_id
+    #     slicer.mrmlScene.Clear(0)
+
+    #     layout_map = {('R', 'CC'): 'RCC', ('R', 'MLO'): 'RMLO', ('L', 'CC'): 'LCC', ('L', 'MLO'): 'LMLO'}
+    #     volume_map = {}
+    #     for _, row in case_df.iterrows():
+    #         tag = layout_map.get((row['laterality'], row['view_position']))
+    #         dicom_file = case_folder / f"{row['image_id']}.dicom"
+    #         if tag and dicom_file.exists():
+    #             node = slicer.util.loadVolume(str(dicom_file))
+    #             if node:
+    #                 volume_map[tag] = node
+
+    #     if len(volume_map) != 4:
+    #         missing = set(layout_map.values()) - set(volume_map.keys())
+    #         qt.QMessageBox.warning(slicer.util.mainWindow(), "Load Error", f"Missing views: {', '.join(missing)} from {case_folder}")
+    #         return
+
+    #     # self.setupLayout(volume_map)
+    #     self.volume_map = volume_map
+    #     self.waitForSliceNodesAndSetupLayout()
+
+    #     self.updateStatusLabel()
+    #     self.showBiradsSection()
+    
+    # def waitForSliceNodesAndSetupLayout(self):
+    #     required_tags = ["RCC", "RMLO", "LCC", "LMLO"]
+    #     layoutManager = slicer.app.layoutManager()
+
+    #     def checkAndSetup():
+    #         if all(slicer.util.getNodes(tag) for tag in required_tags):
+    #             self.setupLayout(self.volume_map)
+    #         else:
+    #             qt.QTimer.singleShot(100, checkAndSetup)
+
+    #     self.ensureCustomLayoutAvailable()
+    #     layoutManager.setLayout(501)
+    #     qt.QTimer.singleShot(100, checkAndSetup)
 
     def loadNextCase(self):
         self.currentCaseIndex += 1
@@ -376,23 +470,159 @@ class ReaderStudyController:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Load Error", f"Missing views: {', '.join(missing)} from {case_folder}")
             return
 
-        self.setupLayout(volume_map)
+        self.volume_map = volume_map
+        qt.QTimer.singleShot(0, self.waitForSliceNodesAndSetupLayout)
         self.updateStatusLabel()
         self.showBiradsSection()
     
-    def isSegmentEmpty(self, segmentationNode, segmentID):
-        labelmap = vtkSegCore.vtkOrientedImageData()
-        slicer.vtkSlicerSegmentationsModuleLogic.GetSegmentBinaryLabelmapRepresentation(
-            segmentationNode, segmentID, labelmap
-        )
+    def waitForSliceNodesAndSetupLayout(self):
+        required_tags = ["RCC", "RMLO", "LCC", "LMLO"]
+        layoutManager = slicer.app.layoutManager()
 
-        extent = labelmap.GetExtent()
-        for z in range(extent[4], extent[5] + 1):
-            for y in range(extent[2], extent[3] + 1):
-                for x in range(extent[0], extent[1] + 1):
-                    if labelmap.GetScalarComponentAsDouble(x, y, z, 0) != 0:
-                        return False
-        return True
+        self.ensureCustomLayoutAvailable()  # Register layout before use
+        layoutManager.setLayout(501)
+
+        def checkAndSetup():
+            if all(slicer.util.getNodes(tag) for tag in required_tags):
+                self.setupLayout(self.volume_map)
+            else:
+                qt.QTimer.singleShot(100, checkAndSetup)
+
+        qt.QTimer.singleShot(100, checkAndSetup)
+
+    # def isSegmentEmpty(self, segmentationNode, segmentID):
+    #     print(f"Checking segment: {segmentID}")
+    #     labelmap = vtkSegCore.vtkOrientedImageData()
+    #     slicer.vtkSlicerSegmentationsModuleLogic.GetSegmentBinaryLabelmapRepresentation(
+    #         segmentationNode, segmentID, labelmap
+    #     )
+
+    #     extent = labelmap.GetExtent()
+    #     print(f"Extent of segment {segmentID}: {extent}")
+
+    #     for z in range(extent[4], extent[5] + 1):
+    #         for y in range(extent[2], extent[3] + 1):
+    #             for x in range(extent[0], extent[1] + 1):
+    #                 if labelmap.GetScalarComponentAsDouble(x, y, z, 0) != 0:
+    #                     print(f"Non-zero voxel at ({x}, {y}, {z}): {labelmap.GetScalarComponentAsDouble(x, y, z, 0)}")
+    #                     return False
+    #     print("Segment is empty")
+    #     return True
+
+    def isSegmentEmpty(self, segmentationNode, segmentID, referenceVolumeNode):
+        try:
+            segmentArray = slicer.util.arrayFromSegmentBinaryLabelmap(segmentationNode, segmentID, referenceVolumeNode)
+            return not np.any(segmentArray)
+        except Exception as e:
+            print(f"Error checking segment '{segmentID}': {e}")
+            return True
+    
+    def getSelectedFeatures(self):
+        features = []
+        for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
+            if checkbox.isChecked() and checkbox.text != "None of the above" and checkbox.text != "Axillary adenopathy":
+                features.append(checkbox.text)
+        return features
+    
+    def handleFeatureSegmentationStart(self):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Margins")
+        if self.isSegmentEmpty(segmentationNode, marginsID, self.referenceVolumeNode):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Margins segment is empty. Please segment the margins.")
+            return
+
+        noneSelected = any(cb.text == "None of the above" and cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox))
+
+        if noneSelected:
+            pass
+
+        self.associatedFeaturesToSegment = self.getSelectedFeatures()
+        self.currentFeatureIndex = 0
+        self.segmentNextFeature()
+
+    def segmentNextFeature(self):
+        if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
+            return
+
+        feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
+        self.currentFeatureIndex += 1
+
+        qt.QMessageBox.information(slicer.util.mainWindow(), "Feature Segmentation", f"Please segment {feature} in the R-CC view.")
+
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        if not segmentationNode:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Error", "No segmentation node found.")
+            return
+
+        segmentID = segmentationNode.GetSegmentation().AddEmptySegment(feature)
+        self.segmentEditorWidget.setCurrentSegmentID(segmentID)
+
+        self.ui.instructionLabel.setText(f"Please segment the {feature} in the R-CC view.\nTip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+        self.ui.nextQuestionButton.setText(f"Save {feature} segmentation")
+
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+
+        self.ui.nextQuestionButton.clicked.connect(self.saveCurrentFeatureSegmentation)
+
+    def saveCurrentFeatureSegmentation(self):
+        segmentationNode = self.segmentEditorWidget.segmentationNode()
+        feature = self.associatedFeaturesToSegment[self.currentFeatureIndex - 1]
+        segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(feature)
+        if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"{feature} segment is empty. Please segment it before continuing.")
+            return
+
+        self.segmentNextFeature()
+    
+
+    
+    # def segmentNextFeature(self):
+    #     if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
+    #         # All features done, proceed to R-MLO segmentation
+    #         # self.prepareForMLO() # placeholder
+    #         return
+        
+    #     feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
+    #     self.currentFeatureIndex += 1
+
+    #     qt.QMessageBox.information(slicer.util.mainWindow(), "Feature Segmentation", f"Please segment {feature} in the R-CC view.")
+
+    #     segmentationNode = self.segmentEditorWidget.segmentationNode()
+    #     if not segmentationNode:
+    #         qt.QMessageBox.warning(slicer.util.mainWindow(), "Error", "No segmentation node found.")
+    #         return
+        
+    #     segmentID = segmentationNode.GetSegmentation().AddEmptySegment(feature)
+    #     self.segmentEditorWidget.setCurrentSegmentID(segmentID)
+
+    #     self.ui.nextQuestionButton.setText(f"Save {feature} segmentation")
+
+    #     try:
+    #         self.ui.nextQuestionButton.clicked.disconnect()
+    #     except TypeError:
+    #         pass
+
+    #     self.ui.nextQuestionButton.clicked.connect(self.segmentNextFeature)
+    
+    # def handleFeatureSegmentationStart(self):
+    #     segmentationNode = self.segmentEditorWidget.segmentationNode()
+    #     marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Margins")
+    #     if self.isSegmentEmpty(segmentationNode, marginsID):
+    #         qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Margins segment is empty. Please segment the margins.")
+    #         return
+        
+    #     noneSelected = any(cb.text == "None of the above" and cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox))
+
+    #     if noneSelected:
+    #         pass
+
+    #     self.associatedFeaturesToSegment = self.getSelectedFeatures()
+    #     self.currentFeatureIndex = 0
+    #     self.segmentNextFeature()
+
 
     def clearRadioSelections(self):
         for group in [
@@ -412,6 +642,7 @@ class ReaderStudyController:
         return None
     
     def setupLayout(self, volume_map):
+        self.ensureCustomLayoutAvailable()
         self.volume_map = volume_map
         layout_id = 501
         layout_xml = """
@@ -433,7 +664,9 @@ class ReaderStudyController:
         layout_node = slicer.app.layoutManager().layoutLogic().GetLayoutNode()
         if not layout_node.GetLayoutDescription(layout_id):
             layout_node.AddLayoutDescription(layout_id, layout_xml)
-        slicer.app.layoutManager().setLayout(layout_id)
+        # slicer.app.layoutManager().setLayout(layout_id)
+        qt.QTimer.singleShot(0, lambda: slicer.app.layoutManager().setLayout(layout_id))
+
 
         flipTags = ["RCC", "RMLO", "LCC", "LMLO"]
 
@@ -484,6 +717,27 @@ class ReaderStudyController:
                 centerY = (bounds[2] + bounds[3]) / 2.0
                 centerZ = (bounds[4] + bounds[5]) / 2.0
                 sliceNode.SetSliceOffset(centerZ)
+    
+    def ensureCustomLayoutAvailable(self):
+        layout_id = 501
+        layout_xml = """<layout type="horizontal">
+        <item>
+            <layout type="vertical">
+            <item><view class="vtkMRMLSliceNode" singletontag="RCC"/></item>
+            <item><view class="vtkMRMLSliceNode" singletontag="RMLO"/></item>
+            </layout>
+        </item>
+        <item>
+            <layout type="vertical">
+            <item><view class="vtkMRMLSliceNode" singletontag="LCC"/></item>
+            <item><view class="vtkMRMLSliceNode" singletontag="LMLO"/></item>
+            </layout>
+        </item>
+        </layout>"""
+        layout_node = slicer.app.layoutManager().layoutLogic().GetLayoutNode()
+        if not layout_node.GetLayoutDescription(layout_id):
+            layout_node.AddLayoutDescription(layout_id, layout_xml)
+
 
     def updateStatusLabel(self):
         total = len(self.caseList)
