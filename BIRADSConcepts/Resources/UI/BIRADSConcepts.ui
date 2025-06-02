@@ -140,7 +140,7 @@
    </item>
 
 <item>
-  <widget class="QLabel" name="instructionLabelrightAssessmentLabel">
+  <widget class="QLabel" name="rightAssessmentLabel">
     <property name="text">
       <string>Now evaluate the right breast.</string>
     </property>
