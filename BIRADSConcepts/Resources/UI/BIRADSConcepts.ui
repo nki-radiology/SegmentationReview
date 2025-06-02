@@ -235,6 +235,133 @@
   </widget>
 </item>
 
+   <!-- New Asymmetry Section -->
+   <item>
+    <widget class="QGroupBox" name="asymmetryGroup">
+     <layout class="QVBoxLayout">
+    <item>
+      <widget class="QLabel" name="asimmetryQuestionLabel">
+       <property name="text">
+        <string>Is there asymmetry?</string>
+       </property>
+      </widget>
+    </item>
+      <item><widget class="QRadioButton" name="asymmetryYes"><property name="text"><string>Yes</string></property></widget></item>
+      <item><widget class="QRadioButton" name="asymmetryNo"><property name="text"><string>No</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="asymmetrySubtypeGroup">
+     <property name="title">
+      <string>Asymmetry Type</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QCheckBox" name="asymmetryFocal"><property name="text"><string>Focal</string></property></widget></item>
+      <item><widget class="QCheckBox" name="asymmetryGlobal"><property name="text"><string>Global</string></property></widget></item>
+      <item><widget class="QCheckBox" name="asymmetryDeveloping"><property name="text"><string>Developing</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
+<!-- Architectural Distortion -->
+<item>
+  <widget class="QGroupBox" name="archDistortionGroup">
+    <layout class="QVBoxLayout">
+      <item>
+        <widget class="QLabel" name="archDistortionLabel">
+          <property name="text">
+            <string>Is there architectural distortion not associated with a mass?</string>
+          </property>
+        </widget>
+      </item>
+      <item>
+        <widget class="QRadioButton" name="architecturalDistortionYes">
+          <property name="text">
+            <string>Yes</string>
+          </property>
+        </widget>
+      </item>
+      <item>
+        <widget class="QRadioButton" name="architecturalDistortionNo">
+          <property name="text">
+            <string>No</string>
+          </property>
+        </widget>
+      </item>
+      <item>
+   <widget class="QRadioButton" name="architecturalDistortionNA">
+    <property name="text">
+     <string>Not applicable</string>
+    </property>
+   </widget>
+  </item>
+    </layout>
+  </widget>
+</item>
+
+
+   <!-- Calcifications Section -->
+   <item>
+    <widget class="QGroupBox" name="calcificationsGroup">
+     <layout class="QVBoxLayout">
+     <item>
+        <widget class="QLabel" name="calcificationsNonAssociatedLabel">
+          <property name="text">
+            <string>Are there calcifications not associated with a mass?</string>
+          </property>
+        </widget>
+      </item>
+      <item><widget class="QRadioButton" name="calcificationsYes"><property name="text"><string>Yes</string></property></widget></item>
+      <item><widget class="QRadioButton" name="calcificationsNo"><property name="text"><string>No</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Morphology Subgroup -->
+   <item>
+    <widget class="QGroupBox" name="calcificationsMorphologyGroup">
+     <property name="title">
+      <string>Calcifications Morphology</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="morphologyBenign"><property name="text"><string>Typically benign</string></property></widget></item>
+      <item><widget class="QRadioButton" name="morphologySuspicious"><property name="text"><string>Suspicious</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Suspicious Subtypes -->
+   <item>
+    <widget class="QGroupBox" name="suspiciousMorphologySubGroup">
+     <property name="title">
+      <string>Suspicious Morphology Subtypes</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QCheckBox" name="morphologyAmorphous"><property name="text"><string>Amorphous</string></property></widget></item>
+      <item><widget class="QCheckBox" name="morphologyCoarse"><property name="text"><string>Coarse heterogeneous</string></property></widget></item>
+      <item><widget class="QCheckBox" name="morphologyFinePleiomorphic"><property name="text"><string>Fine pleiomorphic</string></property></widget></item>
+      <item><widget class="QCheckBox" name="morphologyFineLinear"><property name="text"><string>Fine linear or fine linear branching</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Distribution Subgroup -->
+   <item>
+    <widget class="QGroupBox" name="calcificationsDistributionGroup">
+     <property name="title">
+      <string>Calcifications Distribution</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item><widget class="QRadioButton" name="distributionDiffuse"><property name="text"><string>Diffuse</string></property></widget></item>
+      <item><widget class="QRadioButton" name="distributionRegional"><property name="text"><string>Regional</string></property></widget></item>
+      <item><widget class="QRadioButton" name="distributionGrouped"><property name="text"><string>Grouped</string></property></widget></item>
+      <item><widget class="QRadioButton" name="distributionLinear"><property name="text"><string>Linear</string></property></widget></item>
+      <item><widget class="QRadioButton" name="distributionSegmental"><property name="text"><string>Segmental</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+
 <item>
   <widget class="QFrame" name="segmentEditorFrame">
     <property name="frameShape">

@@ -80,7 +80,6 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
         self.massPresenceRight = None
         self.segmentEditorWidget = segmentEditorWidget
-        
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
         self.ui.nextQuestionButton.connect('clicked(bool)', self.validateBiradsAndShowDensity)
@@ -97,6 +96,21 @@ class ReaderStudyController:
         for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
             if checkbox != self.ui.featureNone:
                 checkbox.toggled.connect(self.ensureNoneNotChecked)
+
+        self.ui.calcificationsYes.toggled.connect(self.toggleCalcificationSubmenus)
+        self.ui.calcificationsNo.toggled.connect(lambda: self.toggleCalcificationSubmenus(False))
+
+        self.ui.morphologySuspicious.toggled.connect(self.toggleSuspiciousMorphologySubgroup)
+
+        self.ui.asymmetryYes.toggled.connect(self.toggleAsymmetrySubtypes)
+        self.ui.asymmetryNo.toggled.connect(lambda: self.toggleAsymmetrySubtypes(False))
+        
+        self.ui.architecturalDistortionNA.setEnabled(False)
+        self.ui.massRightYes.toggled.connect(self.updateArchDistortionAvailability)
+        self.ui.massRightNo.toggled.connect(self.updateArchDistortionAvailability)
+        
+        self.toggleCalcificationSubmenus(False) # Hide by default
+
 
     def hideStudyWidgets(self):
         self.ui.instructionLabel.hide()
@@ -115,6 +129,13 @@ class ReaderStudyController:
         self.ui.rightMassMarginGroup.hide()
         self.ui.rightMassDensityGroup.hide()
         self.ui.rightMassFeaturesGroup.hide()
+        self.ui.asymmetryGroup.hide()
+        self.ui.asymmetrySubtypeGroup.hide()
+        self.ui.archDistortionGroup.hide()
+        self.ui.calcificationsGroup.hide()
+        self.ui.calcificationsMorphologyGroup.hide()
+        self.ui.suspiciousMorphologySubGroup.hide()
+        self.ui.calcificationsDistributionGroup.hide()
         self.segmentEditorWidget.hide()
 
     def showBiradsSection(self):
@@ -181,36 +202,36 @@ class ReaderStudyController:
         self.ui.densityLeftGroup.hide()
         self.ui.rightAssessmentLabel.show()
         self.ui.rightMassGroup.show()
+        self.ui.asymmetryGroup.show()
+        self.ui.archDistortionGroup.show()
+        self.ui.calcificationsGroup.show()
 
         self.ui.nextQuestionButton.setText("Next Question")
         self.ui.nextQuestionButton.clicked.disconnect()
         self.ui.nextQuestionButton.connect('clicked(bool)', self.validateRightMass)
     
     def validateRightMass(self):
+        # --- MASS CHECK ---
         is_mass = self.getSelectedButtonText(self.ui.rightMassGroup)
-
         if not is_mass:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select Yes or No for mass presence.")
             return
-        
+
         self.massPresenceRight = is_mass
         print(f"Mass presence (right breast): {self.massPresenceRight}")
 
-        self.ui.rightMassGroup.hide()
-
         if is_mass.lower() == "yes":
-            # Show submenus
-            self.ui.rightMassShapeGroup.show()
-            self.ui.rightMassMarginGroup.show()
-            self.ui.rightMassDensityGroup.show()
-            self.ui.rightMassFeaturesGroup.show()
-
+            # Validate mass shape
             if not self.getSelectedButtonText(self.ui.rightMassShapeGroup):
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass shape.")
                 return
+
+            # Validate mass margin
             if not self.getSelectedButtonText(self.ui.rightMassMarginGroup):
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass margin.")
                 return
+
+            # Validate mass density
             if not self.getSelectedButtonText(self.ui.rightMassDensityGroup):
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass density.")
                 return
@@ -230,7 +251,53 @@ class ReaderStudyController:
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Conflict", "'None of the above' cannot be selected with other options.")
                 return
 
+        # --- ASYMMETRY CHECK ---
+        asymmetry = self.getSelectedButtonText(self.ui.asymmetryGroup)
+        if not asymmetry:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the asymmetry question.")
+            return
+        if asymmetry.lower() == "yes":
+            subtype_selected = any(
+                cb.isChecked() for cb in [
+                    self.ui.asymmetryFocal,
+                    self.ui.asymmetryGlobal,
+                    self.ui.asymmetryDeveloping
+                ]
+            )
+            if not subtype_selected:
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select at least one asymmetry type.")
+                return
 
+        # --- ARCHITECTURAL DISTORTION CHECK ---
+        if not any(rb.isChecked() for rb in [self.ui.architecturalDistortionYes, self.ui.architecturalDistortionNo, self.ui.architecturalDistortionNA]):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the architectural distortion question.")
+            return
+
+        # --- CALCIFICATIONS CHECK ---
+        calcifications = self.getSelectedButtonText(self.ui.calcificationsGroup)
+        if not calcifications:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the calcifications question.")
+            return
+
+        if calcifications.lower() == "yes":
+            # Morphology
+            if not self.getSelectedButtonText(self.ui.calcificationsMorphologyGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a calcification morphology.")
+                return
+
+            # Distribution
+            if not self.getSelectedButtonText(self.ui.calcificationsDistributionGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a calcification distribution.")
+                return
+
+        # All checks passed, proceed
+        self.ui.rightMassGroup.hide()
+        self.ui.rightMassShapeGroup.hide()
+        self.ui.rightMassMarginGroup.hide()
+        self.ui.rightMassDensityGroup.hide()
+        self.ui.rightMassFeaturesGroup.hide()
+
+        if is_mass.lower() == "yes":
             self.ui.instructionLabel.setText(
                 "Please segment the mass in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function."
@@ -238,8 +305,20 @@ class ReaderStudyController:
             self.ui.instructionLabel.show()
             self.launchSegmentEditorForRCC()
         else:
-            pass
-    
+            self.ui.rightAssessmentLabel.hide()
+            self.ui.asymmetryGroup.hide()
+            self.ui.asymmetrySubtypeGroup.hide()
+            self.ui.archDistortionGroup.hide()
+            self.ui.calcificationsGroup.hide()
+            self.ui.calcificationsMorphologyGroup.hide()
+            self.ui.calcificationsDistributionGroup.hide()
+            self.ui.nextQuestionButton.setText("Continue")
+            try:
+                self.ui.nextQuestionButton.clicked.disconnect()
+            except TypeError:
+                pass
+            self.ui.nextQuestionButton.clicked.connect(lambda: qt.QMessageBox.information(slicer.util.mainWindow(), "Next Step", "Proceeding to next phase."))
+   
     def toggleMassSubmenus(self):
         is_yes = self.ui.massRightYes.isChecked()
         self.ui.rightMassShapeGroup.setVisible(is_yes)
@@ -286,8 +365,6 @@ class ReaderStudyController:
         self.segmentEditorWidget.unorderedEffectsVisible = False
         self.segmentEditorWidget.setEffectNameOrder(["Threshold", "Paint", "Erase", "Smoothing"])
 
-        # Activate the Threshold tool by default
-        # self.segmentEditorWidget.setActiveEffectByName("Threshold")
         # Hide mass assessment submenus
         self.ui.rightAssessmentLabel.hide()
         self.ui.rightMassGroup.hide()
@@ -373,8 +450,34 @@ class ReaderStudyController:
     def ensureNoneNotChecked(self):
         if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
             self.ui.featureNone.setChecked(False)
+    
+    def updateArchDistortionAvailability(self):
+        if self.ui.massRightYes.isChecked():
+            self.ui.architecturalDistortionYes.setChecked(False)
+            self.ui.architecturalDistortionNo.setChecked(False)
+            self.ui.architecturalDistortionNA.setEnabled(True)
+            self.ui.architecturalDistortionYes.setEnabled(False)
+            self.ui.architecturalDistortionNo.setEnabled(False)
+            self.ui.architecturalDistortionNA.setChecked(True)
+        else:
+            self.ui.architecturalDistortionNA.setChecked(False)
+            self.ui.architecturalDistortionNA.setEnabled(False)
+            self.ui.architecturalDistortionYes.setEnabled(True)
+            self.ui.architecturalDistortionNo.setEnabled(True)
 
-            
+    def toggleCalcificationSubmenus(self, show=True):
+        self.ui.calcificationsMorphologyGroup.setVisible(show)
+        self.ui.calcificationsDistributionGroup.setVisible(show)
+        if not show:
+            self.ui.morphologySuspicious.setChecked(False)
+            self.toggleSuspiciousMorphologySubgroup(False)
+
+    def toggleSuspiciousMorphologySubgroup(self, show=True):
+        self.ui.suspiciousMorphologySubGroup.setVisible(show)
+
+    def toggleAsymmetrySubtypes(self, show=True):
+        self.ui.asymmetrySubtypeGroup.setVisible(show)
+
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
         if not name:
@@ -390,7 +493,7 @@ class ReaderStudyController:
         self.currentCaseIndex = -1
         self.ui.readerInputGroup.hide()
         self.loadNextCase()
-
+           
     # def loadNextCase(self):
     #     self.currentCaseIndex += 1
     #     if self.currentCaseIndex >= len(self.caseList):
@@ -490,25 +593,6 @@ class ReaderStudyController:
 
         qt.QTimer.singleShot(100, checkAndSetup)
 
-    # def isSegmentEmpty(self, segmentationNode, segmentID):
-    #     print(f"Checking segment: {segmentID}")
-    #     labelmap = vtkSegCore.vtkOrientedImageData()
-    #     slicer.vtkSlicerSegmentationsModuleLogic.GetSegmentBinaryLabelmapRepresentation(
-    #         segmentationNode, segmentID, labelmap
-    #     )
-
-    #     extent = labelmap.GetExtent()
-    #     print(f"Extent of segment {segmentID}: {extent}")
-
-    #     for z in range(extent[4], extent[5] + 1):
-    #         for y in range(extent[2], extent[3] + 1):
-    #             for x in range(extent[0], extent[1] + 1):
-    #                 if labelmap.GetScalarComponentAsDouble(x, y, z, 0) != 0:
-    #                     print(f"Non-zero voxel at ({x}, {y}, {z}): {labelmap.GetScalarComponentAsDouble(x, y, z, 0)}")
-    #                     return False
-    #     print("Segment is empty")
-    #     return True
-
     def isSegmentEmpty(self, segmentationNode, segmentID, referenceVolumeNode):
         try:
             segmentArray = slicer.util.arrayFromSegmentBinaryLabelmap(segmentationNode, segmentID, referenceVolumeNode)
@@ -576,52 +660,6 @@ class ReaderStudyController:
             return
 
         self.segmentNextFeature()
-    
-
-    
-    # def segmentNextFeature(self):
-    #     if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
-    #         # All features done, proceed to R-MLO segmentation
-    #         # self.prepareForMLO() # placeholder
-    #         return
-        
-    #     feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
-    #     self.currentFeatureIndex += 1
-
-    #     qt.QMessageBox.information(slicer.util.mainWindow(), "Feature Segmentation", f"Please segment {feature} in the R-CC view.")
-
-    #     segmentationNode = self.segmentEditorWidget.segmentationNode()
-    #     if not segmentationNode:
-    #         qt.QMessageBox.warning(slicer.util.mainWindow(), "Error", "No segmentation node found.")
-    #         return
-        
-    #     segmentID = segmentationNode.GetSegmentation().AddEmptySegment(feature)
-    #     self.segmentEditorWidget.setCurrentSegmentID(segmentID)
-
-    #     self.ui.nextQuestionButton.setText(f"Save {feature} segmentation")
-
-    #     try:
-    #         self.ui.nextQuestionButton.clicked.disconnect()
-    #     except TypeError:
-    #         pass
-
-    #     self.ui.nextQuestionButton.clicked.connect(self.segmentNextFeature)
-    
-    # def handleFeatureSegmentationStart(self):
-    #     segmentationNode = self.segmentEditorWidget.segmentationNode()
-    #     marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Margins")
-    #     if self.isSegmentEmpty(segmentationNode, marginsID):
-    #         qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Margins segment is empty. Please segment the margins.")
-    #         return
-        
-    #     noneSelected = any(cb.text == "None of the above" and cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox))
-
-    #     if noneSelected:
-    #         pass
-
-    #     self.associatedFeaturesToSegment = self.getSelectedFeatures()
-    #     self.currentFeatureIndex = 0
-    #     self.segmentNextFeature()
 
 
     def clearRadioSelections(self):
@@ -664,7 +702,6 @@ class ReaderStudyController:
         layout_node = slicer.app.layoutManager().layoutLogic().GetLayoutNode()
         if not layout_node.GetLayoutDescription(layout_id):
             layout_node.AddLayoutDescription(layout_id, layout_xml)
-        # slicer.app.layoutManager().setLayout(layout_id)
         qt.QTimer.singleShot(0, lambda: slicer.app.layoutManager().setLayout(layout_id))
 
 
@@ -688,14 +725,6 @@ class ReaderStudyController:
 
             sliceNode.UpdateMatrices()
 
-            # # Fit and zoom
-            # sliceWidget = slicer.app.layoutManager().sliceWidget(tag)
-            # logic = sliceWidget.sliceLogic()
-            # logic.FitSliceToAll()
-
-            # fov = sliceNode.GetFieldOfView()
-            # zoomFactor = 0.75  # Zoom in by reducing FOV
-            # sliceNode.SetFieldOfView(fov[0] * zoomFactor, fov[1] * zoomFactor, fov[2])
             sliceWidget = slicer.app.layoutManager().sliceWidget(tag)
             logic = sliceWidget.sliceLogic()
             sliceNode = logic.GetSliceNode()
