@@ -305,45 +305,6 @@ class ReaderStudyController:
         self.ui.calcificationsDistributionGroup.hide()
 
         self.startRightBreastSegmentationSequence()
-
-        # if is_mass.lower() == "yes":
-        #     self.ui.instructionLabel.setText(
-        #         "Please segment the mass in the R-CC view.\n" \
-        #         "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function."
-        #     )
-        #     self.ui.instructionLabel.show()
-        #     self.launchSegmentEditorForRCC()
-        # else:
-        #     self.ui.rightAssessmentLabel.hide()
-        #     self.ui.asymmetryGroup.hide()
-        #     self.ui.asymmetrySubtypeGroup.hide()
-        #     self.ui.archDistortionGroup.hide()
-        #     self.ui.calcificationsGroup.hide()
-        #     self.ui.calcificationsMorphologyGroup.hide()
-        #     self.ui.calcificationsDistributionGroup.hide()
-        #     self.ui.nextQuestionButton.setText("Continue")
-        #     try:
-        #         self.ui.nextQuestionButton.clicked.disconnect()
-        #     except TypeError:
-        #         pass
-        #     self.ui.nextQuestionButton.clicked.connect(lambda: qt.QMessageBox.information(slicer.util.mainWindow(), "Next Step", "Proceeding to next phase."))
-   
-    # def startRightBreastSegmentationSequence(self):
-    #     self.segmentationQueue = []
-
-    #     if self.ui.massRightYes.isChecked():
-    #         self.segmentationQueue.append(self.segmentMassWithMarginsAndFeatures)
-
-    #     if self.ui.asymmetryYes.isChecked():
-    #         self.segmentationQueue.append(self.segmentAsymmetry)
-
-    #     if not self.ui.massRightYes.isChecked() and self.ui.architecturalDistortionYes.isChecked():
-    #         self.segmentationQueue.append(self.segmentDistortion)
-
-    #     if self.ui.calcificationsYes.isChecked():
-    #         self.segmentationQueue.append(self.segmentCalcifications)
-
-    #     self.runNextSegmentationTask()
  
     def startRightBreastSegmentationSequence(self):
         self.segmentationQueue = []
@@ -380,13 +341,13 @@ class ReaderStudyController:
 
     def runNextSegmentationTask(self):
         if not self.segmentationQueue:
-            self.ui.nextQuestionButton.setText("Continue")
-            self.ui.instructionLabel.setText("All required segmentations complete. Proceed to the next step.")
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
+            self.promptMLOSegmentation()
             try:
                 self.ui.nextQuestionButton.clicked.disconnect()
             except TypeError:
                 pass
-            self.ui.nextQuestionButton.clicked.connect(lambda: qt.QMessageBox.information(slicer.util.mainWindow(), "Next Step", "Proceeding to next phase."))
+            self.ui.nextQuestionButton.clicked.connect(self.promptMLOSegmentation)
             return
 
         nextTask = self.segmentationQueue.pop(0)
@@ -459,7 +420,7 @@ class ReaderStudyController:
 
     def segmentNextFeatureInQueue(self):
         if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
-            self.runNextSegmentationTask()
+            self.promptMLOSegmentation()
             return
 
         feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
@@ -477,7 +438,12 @@ class ReaderStudyController:
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the {feature} in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText(f"Add next segment")
+
+        isLastSegment = self.currentFeatureIndex >= len(self.associatedFeaturesToSegment)
+        if isLastSegment:
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
+        else:
+            self.ui.nextQuestionButton.setText("Add next segment")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -504,21 +470,22 @@ class ReaderStudyController:
         self.startGenericSegmentation("MainCalcifications")
 
     def startGenericSegmentation(self, name):
+        self.ui.instructionLabel.show()
+        self.ui.instructionLabel.setText(f"Please segment the {name} in the R-CC view.\n" \
+                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
+        if len(self.segmentationQueue) == 0:
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
+        else:
+            self.ui.nextQuestionButton.setText("Add next segment")
+
+
+        self.launchSegmentEditorForRCC(name)
+
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
         msgBox.setWindowTitle("Segmentation Instruction")
         msgBox.setText(f"Please segment {name} in the R-CC view.")
         msgBox.setStandardButtons(qt.QMessageBox.Ok)
         msgBox.exec_()
-        self.ui.instructionLabel.show()
-        self.ui.instructionLabel.setText(f"Please segment the {name} in the R-CC view.\n" \
-                "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText(f"Add next segment")
-
-        self.launchSegmentEditorForRCC(name)
-
-        # segmentationNode = self.segmentEditorWidget.segmentationNode()
-        # segmentID = segmentationNode.GetSegmentation().AddEmptySegment(name)
-        # self.segmentEditorWidget.setCurrentSegmentID(segmentID)
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -534,8 +501,23 @@ class ReaderStudyController:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Segment is empty. Please complete it.")
             return
 
-        self.runNextSegmentationTask()
+        if not self.segmentationQueue:
+            self.promptMLOSegmentation()
+        else:
+            self.runNextSegmentationTask()
+    
+    # Add this function to continue after R-CC segmentations
+    def promptMLOSegmentation(self):
+        msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        msgBox.setWindowTitle("Continue to R-MLO?")
+        msgBox.setText("Do you want to modify the segmentations?\nIf you press Continue, you will only be able to edit them at the end of the case.")
+        msgBox.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
+        msgBox.button(qt.QMessageBox.Ok).setText("Continue")
+        msgBox.button(qt.QMessageBox.Cancel).setText("Edit segmentations")
+        ret = msgBox.exec_()
 
+        if ret == qt.QMessageBox.Ok:
+            self.startRMLOSegmentationSequence()
    
     def toggleMassSubmenus(self):
         is_yes = self.ui.massRightYes.isChecked()
@@ -633,56 +615,6 @@ class ReaderStudyController:
         self.ui.readerInputGroup.hide()
         self.loadNextCase()
            
-    # def loadNextCase(self):
-    #     self.currentCaseIndex += 1
-    #     if self.currentCaseIndex >= len(self.caseList):
-    #         qt.QMessageBox.information(slicer.util.mainWindow(), "Done", "All cases reviewed.")
-    #         return
-
-    #     self.hideStudyWidgets()
-    #     self.clearRadioSelections()
-
-    #     case_df = self.caseList[self.currentCaseIndex]
-    #     study_id = case_df.iloc[0]['study_id']
-    #     case_folder = self.logic.examples_breast_dir / study_id
-    #     slicer.mrmlScene.Clear(0)
-
-    #     layout_map = {('R', 'CC'): 'RCC', ('R', 'MLO'): 'RMLO', ('L', 'CC'): 'LCC', ('L', 'MLO'): 'LMLO'}
-    #     volume_map = {}
-    #     for _, row in case_df.iterrows():
-    #         tag = layout_map.get((row['laterality'], row['view_position']))
-    #         dicom_file = case_folder / f"{row['image_id']}.dicom"
-    #         if tag and dicom_file.exists():
-    #             node = slicer.util.loadVolume(str(dicom_file))
-    #             if node:
-    #                 volume_map[tag] = node
-
-    #     if len(volume_map) != 4:
-    #         missing = set(layout_map.values()) - set(volume_map.keys())
-    #         qt.QMessageBox.warning(slicer.util.mainWindow(), "Load Error", f"Missing views: {', '.join(missing)} from {case_folder}")
-    #         return
-
-    #     # self.setupLayout(volume_map)
-    #     self.volume_map = volume_map
-    #     self.waitForSliceNodesAndSetupLayout()
-
-    #     self.updateStatusLabel()
-    #     self.showBiradsSection()
-    
-    # def waitForSliceNodesAndSetupLayout(self):
-    #     required_tags = ["RCC", "RMLO", "LCC", "LMLO"]
-    #     layoutManager = slicer.app.layoutManager()
-
-    #     def checkAndSetup():
-    #         if all(slicer.util.getNodes(tag) for tag in required_tags):
-    #             self.setupLayout(self.volume_map)
-    #         else:
-    #             qt.QTimer.singleShot(100, checkAndSetup)
-
-    #     self.ensureCustomLayoutAvailable()
-    #     layoutManager.setLayout(501)
-    #     qt.QTimer.singleShot(100, checkAndSetup)
-
     def loadNextCase(self):
         self.currentCaseIndex += 1
         if self.currentCaseIndex >= len(self.caseList):
