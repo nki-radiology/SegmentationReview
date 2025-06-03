@@ -396,8 +396,13 @@ class ReaderStudyController:
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the mass in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText("Save mass segmentation")
+        self.ui.nextQuestionButton.setText("Add next segment")
         self.launchSegmentEditorForRCC("Mass")
+        msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        msgBox.setWindowTitle("Segmentation Instruction")
+        msgBox.setText(f"Please segment the mass in the R-CC view.")
+        msgBox.setStandardButtons(qt.QMessageBox.Ok)
+        msgBox.exec_()
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -412,10 +417,16 @@ class ReaderStudyController:
         if self.isSegmentEmpty(segmentationNode, massID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Mass segment is empty. Please complete it.")
             return
+        
 
         self.segmentMargins()
 
     def segmentMargins(self):
+        msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        msgBox.setWindowTitle("Segmentation Instruction")
+        msgBox.setText(f"Please segment the margins of the mass in the R-CC view.")
+        msgBox.setStandardButtons(qt.QMessageBox.Ok)
+        msgBox.exec_()
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         marginsSegmentID = segmentationNode.GetSegmentation().AddEmptySegment("Margins")
         self.segmentEditorWidget.setCurrentSegmentID(marginsSegmentID)
@@ -423,7 +434,7 @@ class ReaderStudyController:
         self.ui.instructionLabel.setText(f"Please segment the margins of the mass in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
 
-        self.ui.nextQuestionButton.setText("Save margins segmentation")
+        self.ui.nextQuestionButton.setText("Add next segment")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -458,10 +469,15 @@ class ReaderStudyController:
         segmentID = segmentationNode.GetSegmentation().AddEmptySegment(feature)
         self.segmentEditorWidget.setCurrentSegmentID(segmentID)
 
+        msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        msgBox.setWindowTitle("Segmentation Instruction")
+        msgBox.setText(f"Please segment the {feature} in the R-CC view.")
+        msgBox.setStandardButtons(qt.QMessageBox.Ok)
+        msgBox.exec_()
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the {feature} in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText(f"Save {feature} segmentation")
+        self.ui.nextQuestionButton.setText(f"Add next segment")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -488,10 +504,15 @@ class ReaderStudyController:
         self.startGenericSegmentation("MainCalcifications")
 
     def startGenericSegmentation(self, name):
+        msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        msgBox.setWindowTitle("Segmentation Instruction")
+        msgBox.setText(f"Please segment {name} in the R-CC view.")
+        msgBox.setStandardButtons(qt.QMessageBox.Ok)
+        msgBox.exec_()
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the {name} in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText(f"Save {name} segmentation")
+        self.ui.nextQuestionButton.setText(f"Add next segment")
 
         self.launchSegmentEditorForRCC(name)
 
@@ -760,7 +781,7 @@ class ReaderStudyController:
         self.segmentEditorWidget.setCurrentSegmentID(segmentID)
 
         self.ui.instructionLabel.setText(f"Please segment the {feature} in the R-CC view.\nTip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText(f"Save {feature} segmentation")
+        self.ui.nextQuestionButton.setText(f"Add next segment")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
