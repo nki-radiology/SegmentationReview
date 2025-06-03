@@ -111,7 +111,6 @@ class ReaderStudyController:
         
         self.toggleCalcificationSubmenus(False) # Hide by default
 
-
     def hideStudyWidgets(self):
         self.ui.instructionLabel.hide()
         self.ui.biradsRightGroup.hide()
@@ -291,20 +290,55 @@ class ReaderStudyController:
                 return
 
         # All checks passed, proceed
-        self.ui.rightMassGroup.hide()
-        self.ui.rightMassShapeGroup.hide()
-        self.ui.rightMassMarginGroup.hide()
-        self.ui.rightMassDensityGroup.hide()
-        self.ui.rightMassFeaturesGroup.hide()
-        self.ui.asymmetryGroup.hide()
-        self.ui.asymmetrySubtypeGroup.hide()
-        self.ui.archDistortionGroup.hide()
-        self.ui.calcificationsGroup.hide()
-        self.ui.calcificationsMorphologyGroup.hide()
-        self.ui.suspiciousMorphologySubGroup.hide()
-        self.ui.calcificationsDistributionGroup.hide()
+        # self.ui.rightMassGroup.hide()
+        # self.ui.rightMassShapeGroup.hide()
+        # self.ui.rightMassMarginGroup.hide()
+        # self.ui.rightMassDensityGroup.hide()
+        # self.ui.rightMassFeaturesGroup.hide()
+        # self.ui.asymmetryGroup.hide()
+        # self.ui.asymmetrySubtypeGroup.hide()
+        # self.ui.archDistortionGroup.hide()
+        # self.ui.calcificationsGroup.hide()
+        # self.ui.calcificationsMorphologyGroup.hide()
+        # self.ui.suspiciousMorphologySubGroup.hide()
+        # self.ui.calcificationsDistributionGroup.hide()
 
-        self.startRightBreastSegmentationSequence()
+        # self.startRightBreastSegmentationSequence()
+        self.promptQuestionLockConfirmation()
+    
+    def promptQuestionLockConfirmation(self):
+        msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        msgBox.setWindowTitle("Confirm Answers")
+        msgBox.setText("Do you want to modify your answers?\nIf you press Continue, you will only be able to edit them at the end of the case.")
+        msgBox.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
+        msgBox.button(qt.QMessageBox.Ok).setText("Continue")
+        msgBox.button(qt.QMessageBox.Cancel).setText("Edit answers")
+        ret = msgBox.exec_()
+
+        if ret == qt.QMessageBox.Ok:
+            # self.lockQuestionInputs()
+            # Hide the questions after confirmation
+            self.ui.rightMassGroup.hide()
+            self.ui.rightMassShapeGroup.hide()
+            self.ui.rightMassMarginGroup.hide()
+            self.ui.rightMassDensityGroup.hide()
+            self.ui.rightMassFeaturesGroup.hide()
+            self.ui.asymmetryGroup.hide()
+            self.ui.asymmetrySubtypeGroup.hide()
+            self.ui.archDistortionGroup.hide()
+            self.ui.calcificationsGroup.hide()
+            self.ui.calcificationsMorphologyGroup.hide()
+            self.ui.suspiciousMorphologySubGroup.hide()
+            self.ui.calcificationsDistributionGroup.hide()
+
+
+            # Determine what to do based on the answers
+            if self.ui.massRightYes.isChecked() or self.ui.asymmetryYes.isChecked() or \
+            self.ui.calcificationsYes.isChecked() or self.ui.architecturalDistortionYes.isChecked():
+                self.startRightBreastSegmentationSequence()
+            else:
+                pass
+                # self.startLeftBreastAssessment()  # You will need to define this if not already
  
     def startRightBreastSegmentationSequence(self):
         self.segmentationQueue = []
@@ -342,12 +376,12 @@ class ReaderStudyController:
     def runNextSegmentationTask(self):
         if not self.segmentationQueue:
             self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-            self.promptMLOSegmentation()
+            self.promptRMLOSegmentation()
             try:
                 self.ui.nextQuestionButton.clicked.disconnect()
             except TypeError:
                 pass
-            self.ui.nextQuestionButton.clicked.connect(self.promptMLOSegmentation)
+            self.ui.nextQuestionButton.clicked.connect(self.promptRMLOSegmentation)
             return
 
         nextTask = self.segmentationQueue.pop(0)
@@ -395,7 +429,10 @@ class ReaderStudyController:
         self.ui.instructionLabel.setText(f"Please segment the margins of the mass in the R-CC view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
 
-        self.ui.nextQuestionButton.setText("Add next segment")
+        if not self.segmentationQueue:
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
+        else:
+            self.ui.nextQuestionButton.setText("Add next segment")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -420,7 +457,7 @@ class ReaderStudyController:
 
     def segmentNextFeatureInQueue(self):
         if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
-            self.promptMLOSegmentation()
+            self.runNextSegmentationTask()
             return
 
         feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
@@ -440,10 +477,8 @@ class ReaderStudyController:
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
 
         isLastSegment = self.currentFeatureIndex >= len(self.associatedFeaturesToSegment)
-        if isLastSegment:
-            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-        else:
-            self.ui.nextQuestionButton.setText("Add next segment")
+
+        self.ui.nextQuestionButton.setText("Add next segment")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -502,12 +537,11 @@ class ReaderStudyController:
             return
 
         if not self.segmentationQueue:
-            self.promptMLOSegmentation()
+            self.promptRMLOSegmentation()
         else:
             self.runNextSegmentationTask()
-    
-    # Add this function to continue after R-CC segmentations
-    def promptMLOSegmentation(self):
+
+    def promptRMLOSegmentation(self):
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
         msgBox.setWindowTitle("Continue to R-MLO?")
         msgBox.setText("Do you want to modify the segmentations?\nIf you press Continue, you will only be able to edit them at the end of the case.")
