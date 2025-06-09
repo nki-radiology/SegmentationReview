@@ -330,13 +330,8 @@ class ReaderStudyController:
         self.segmentationQueue = []
 
         if self.ui.massRightYes.isChecked():
-            # self.segmentationQueue.append(lambda: self.segmentMassWithMarginsAndFeatures(viewTag))
             print(f"I'm before self.segmentationQueue.append(Mass), {viewTag}")
             self.segmentationQueue.append(lambda: self.segmentMass(viewTag))
-            # print(f"I'm before self.segmentationQueue.append(Margins), {viewTag}")
-            # self.segmentationQueue.append(lambda: self.segmentMargins(viewTag))
-            # print(f"I'm after self.segmentationQueue.append(Margins), {viewTag}")
-            # self.segmentationQueue.append(lambda: self.segmentMassWithMargins(viewTag))
             if self.ui.asymmetryYes.isChecked():
                 self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag))
                 if self.ui.calcificationsYes.isChecked():
@@ -362,7 +357,6 @@ class ReaderStudyController:
                 else:
                    if self.ui.calcificationsYes.isChecked():
                        self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
-        print(f"AAAAAA {self.segmentationQueue}\n AAAAAA")
         self.runNextSegmentationTask(viewTag)
     
     def runRCCSegmentation(self):
@@ -381,7 +375,6 @@ class ReaderStudyController:
         if not self.segmentationQueue:
             if viewTag=="RCC":
                 self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-                self.promptRMLOSegmentation()
                 try:
                     self.ui.nextQuestionButton.clicked.disconnect()
                 except TypeError:
@@ -390,19 +383,16 @@ class ReaderStudyController:
                 return
             elif viewTag=="RMLO":
                 self.ui.nextQuestionButton.setText("Continue to left breast assessment")
-                # self.leftBreastAssessment()
                 try:
                     self.ui.nextQuestionButton.clicked.disconnect()
                 except TypeError:
                     pass
-                # self.ui.nextQuestionButton.clicked.connect(self.leftBreastAssessment)
-                return 
+                return
 
         nextTask = self.segmentationQueue.pop(0)
         nextTask()
 
     def segmentMass(self, viewTag):
-        print(f"I'm in segmentMass in {viewTag}")
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the mass in the {viewTag} view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
@@ -422,7 +412,6 @@ class ReaderStudyController:
         self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMassSegmentation(viewTag))
 
     def validateMassSegmentation(self, viewTag):
-        print(f"I am in validateMass in {viewTag}")
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(f"{viewTag}-Mass")
         if self.isSegmentEmpty(segmentationNode, massID, self.referenceVolumeNode):
@@ -433,7 +422,6 @@ class ReaderStudyController:
         self.runNextSegmentationTask(viewTag)
     
     def segmentMargins(self, viewTag):
-        print(f"I'm in segment margins in view {viewTag}")
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
         msgBox.setWindowTitle("Segmentation Instruction")
         msgBox.setText(f"Please segment the margins of the mass in the {viewTag} view.")
@@ -452,46 +440,51 @@ class ReaderStudyController:
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the margins of the mass in the {viewTag} view.\n"
                                         "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText("Add next segment")
-
+        self.associatedFeaturesToSegment = self.getSelectedFeatures(viewTag)
+        noMoreTasks = not self.segmentationQueue and len(self.associatedFeaturesToSegment)==0
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
         except TypeError:
             pass
 
-        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMarginsSegmentation(viewTag))
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMarginsSegmentation(viewTag, noMoreTasks))
+        if noMoreTasks:
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation" if viewTag=="RCC" else "Continue to left breast assessment")
+        else:
+            self.ui.nextQuestionButton.setText("Add next segment")
+            
     
-    def validateMarginsSegmentation(self, viewTag):
-        print(f"I am in validateMarginsSegmentation in {viewTag}")
+    def validateMarginsSegmentation(self, viewTag, noMoreTasksAfterMargins):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(f"{viewTag}-Margins")
         if self.isSegmentEmpty(segmentationNode, marginsID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Margins segment is empty. Please complete it.")
             return
+        
+        if not noMoreTasksAfterMargins:
+            if viewTag == "RCC":
+                if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text not in ["None of the above", "Axillary adenopathy"]):
+                    self.currentFeatureIndex = 0
+                    self.segmentNextFeatureInQueue(viewTag)
+                else:
+                    self.runNextSegmentationTask(viewTag)
+            elif viewTag == "RMLO":
+                print(f"I am in the if RMLO in validateMarginsSegmentation in {viewTag}")
+                if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text != "None of the above"):
+                    self.currentFeatureIndex = 0
+                    self.segmentNextFeatureInQueue(viewTag)
+                else:
+                    self.runNextSegmentationTask(viewTag)
+        else:
+            if viewTag=="RCC":
+                self.promptRMLOSegmentation()
+            elif viewTag=="RMLO":
+                pass
+            # self.runNextSegmentationTask(viewTag)
 
-        if viewTag == "RCC":
-            print(f"I am in the if RCC in validateMarginsSegmentation in {viewTag}")
-            if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text not in ["None of the above", "Axillary adenopathy"]):
-                print(f"I am in the if any in if RCC validateMarginsSegmentation in {viewTag}")
-                self.associatedFeaturesToSegment = self.getSelectedFeatures(viewTag)
-                self.currentFeatureIndex = 0
-                self.segmentNextFeatureInQueue(viewTag)
-            else:
-                self.runNextSegmentationTask(viewTag)
-        elif viewTag == "RMLO":
-            print(f"I am in the if RMLO in validateMarginsSegmentation in {viewTag}")
-            if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text != "None of the above"):
-                print(f"I am in the if any in if RMLO validateMarginsSegmentation in {viewTag}")
-                self.associatedFeaturesToSegment = self.getSelectedFeatures(viewTag)
-                self.currentFeatureIndex = 0
-                self.segmentNextFeatureInQueue(viewTag)
-            else:
-                print(f"I am in the else validateMarginsSegmentation in {viewTag}")
-                self.runNextSegmentationTask(viewTag)
 
     def segmentNextFeatureInQueue(self, viewTag):
         if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
-            print("I'm calling runNextSegmentationTask in segmentNextFeatureInQueue")
             self.runNextSegmentationTask(viewTag)
             return
 
@@ -510,23 +503,29 @@ class ReaderStudyController:
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the {feature} in the {viewTag} view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.ui.nextQuestionButton.setText("Add next segment")
-
+        noMoreTasks = not self.segmentationQueue and self.currentFeatureIndex==len(self.associatedFeaturesToSegment)
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
         except TypeError:
             pass
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateFeatureSegmentation(segmentID, feature, viewTag, noMoreTasks))
+        if noMoreTasks:
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation" if viewTag=="RCC" else "Continue to left breast assessment")
+        else:
+            self.ui.nextQuestionButton.setText("Add next segment")
 
-        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateFeatureSegmentation(segmentID, feature, viewTag))
-
-    def validateFeatureSegmentation(self, segmentID, feature, viewTag):
-        print(f"I am in validateFeatureSegmentation in {viewTag}")
+    def validateFeatureSegmentation(self, segmentID, feature, viewTag, noMoreTasksAfterFeatures):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", f"{feature} segment is empty. Please complete it.")
             return
-
-        self.segmentNextFeatureInQueue(viewTag)
+        if not noMoreTasksAfterFeatures:
+            self.segmentNextFeatureInQueue(viewTag)
+        else:
+            if viewTag=="RCC":
+                self.promptRMLOSegmentation()
+            elif viewTag=="RMLO":
+                pass
 
     def segmentAsymmetry(self, viewTag):
         self.startGenericSegmentation(f"{viewTag}-Asymmetry", viewTag)
@@ -542,7 +541,6 @@ class ReaderStudyController:
         self.ui.instructionLabel.setText(f"Please segment the {name} in the {viewTag} view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
         if len(self.segmentationQueue) == 0 and viewTag=="RCC":
-            print(f"I'm in the if len(self.segmentationQueue) == 0 and viewTag=='RCC' if in startGenericSegmentation")
             self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
         elif len(self.segmentationQueue) == 0 and viewTag=="RMLO":
             self.ui.nextQuestionButton.setText("Continue to left breast assessment") 
@@ -567,13 +565,12 @@ class ReaderStudyController:
     def validateGenericSegmentation(self, segmentID, viewTag):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Segment is empty. Please complete it.")
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", f"{segmentID} is empty. Please complete it.")
             return
 
         if not self.segmentationQueue:
             self.promptRMLOSegmentation()
         else:
-            print("I'm calling runNextSegmentationTask in validateGenericSegmentation")
             self.runNextSegmentationTask(viewTag)
 
     def promptRMLOSegmentation(self):
