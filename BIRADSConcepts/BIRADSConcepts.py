@@ -628,15 +628,29 @@ class ReaderStudyController:
             segmentID = segmentationNode.GetSegmentation().AddEmptySegment(initialSegmentName)
             self.segmentEditorWidget.setCurrentSegmentID(segmentID)
     
+    # def updateAssociatedFeatureSelections(self):
+    #     if self.ui.featureNone.isChecked():
+    #         for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
+    #             if cb != self.ui.featureNone:
+    #                 cb.setChecked(False)
     def updateAssociatedFeatureSelections(self):
         if self.ui.featureNone.isChecked():
             for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
-                if cb != self.ui.featureNone:
+                if cb != self.ui.featureNone and cb.isChecked():
+                    cb.blockSignals(True)
                     cb.setChecked(False)
+                    cb.blockSignals(False)
 
+
+    # def ensureNoneNotChecked(self):
+    #     if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
+    #         self.ui.featureNone.setChecked(False)
     def ensureNoneNotChecked(self):
         if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
+            self.ui.featureNone.blockSignals(True)
             self.ui.featureNone.setChecked(False)
+            self.ui.featureNone.blockSignals(False)
+
     
     def updateArchDistortionAvailability(self):
         if self.ui.massRightYes.isChecked():
