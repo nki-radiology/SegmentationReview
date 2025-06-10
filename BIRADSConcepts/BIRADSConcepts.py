@@ -267,12 +267,12 @@ class ReaderStudyController:
         sideLower = side.lower()
 
         # ---- MASS CHECK ---- #
-        is_mass = self.getSelectedButtonText(getattr(self.ui, f"{sideLower}MassGroup"))
-        if not is_mass:
+        isMass = self.getSelectedButtonText(getattr(self.ui, f"{sideLower}MassGroup"))
+        if not isMass:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select Yes or No for mass presence.")
             return
         
-        if is_mass.lower() == "yes":
+        if isMass.lower() == "yes":
             for name, msg in [
                 (f"{sideLower}MassShapeGroup", "mass shape"),
                 (f"{sideLower}MassMarginGroup", "mass margin"),
@@ -350,13 +350,17 @@ class ReaderStudyController:
             archDistortionYes = getattr(self.ui, f"{side}ArchitecturalDistortionYes")
 
             if massYes.isChecked() or asimmetryYes.isChecked() or calcificationsYes.isChecked() or archDistortionYes.isChecked():
-                if side=="right":
+                if side == "right":
                     self.runCCSegmentation(side="right")
                 else:
                     self.runCCSegmentation(side="left")
             else:
                 getattr(self.ui, f"{side}AssessmentLabel").hide()
-                self.showBreastAssessment(side="left")
+                if side == "right":
+                    self.showBreastAssessment(side="left")
+                else:
+                    self.reviewBreastAssessments()
+
  
     def startBreastSegmentationSequence(self, viewTag: str, side: str):
         self.segmentationQueue = []
@@ -433,8 +437,7 @@ class ReaderStudyController:
                 self.setNextButtonCallback(lambda: self.promptSegmentation("LMLO", "left"))
             elif viewTag=="LMLO" and side == "left":
                 self.ui.nextQuestionButton.setText("Continue to case review")
-                pass
-                # self.setNextButtonCallback(self.caseReview)
+                self.reviewBreastAssessments()
 
         nextTask = self.segmentationQueue.pop(0)
         nextTask()
@@ -555,8 +558,7 @@ class ReaderStudyController:
             elif viewTag == "LCC":
                 self.promptSegmentation("LMLO", "left")
             elif viewTag == "LMLO":
-                pass
-                # self.caseReview()
+                self.reviewBreastAssessments()
                 
     def segmentNextFeatureInQueue(self, viewTag: str, side: str):
         if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
@@ -617,8 +619,7 @@ class ReaderStudyController:
             elif viewTag == "LCC":
                 self.promptSegmentation("LMLO", "left")
             elif viewTag == "LMLO":
-                pass
-                # self.reviewCase()
+                self.reviewBreastAssessments()
                     
     def segmentAsymmetry(self, viewTag: str, side: str):
         self.startGenericSegmentation(f"{viewTag}-{side}-Asymmetry", viewTag, side)
@@ -686,8 +687,7 @@ class ReaderStudyController:
             elif viewTag == "LCC":
                 self.promptSegmentation("LMLO", "left")
             elif viewTag == "LMLO":
-                pass
-                # self.caseReview()
+                self.reviewBreastAssessments()
         else:
             self.runNextSegmentationTask(viewTag, side)
     
@@ -937,6 +937,56 @@ class ReaderStudyController:
             return
 
         self.segmentNextFeature(viewTag)
+    
+    def reviewBreastAssessments(self):
+        self.ui.instructionLabel.hide()
+        # Reset to 4-up layout
+        slicer.app.layoutManager().setLayout(501)
+        self.setupLayout(self.volume_map)
+        # Hide all segmentations
+        for tag in ["RCC", "RMLO", "LCC", "LMLO"]:
+            segNode = slicer.mrmlScene.GetFirstNodeByName(f"{tag}-Segmentations")
+            if segNode and segNode.GetDisplayNode():
+                segNode.GetDisplayNode().SetVisibility(False)
+        
+        self.segmentEditorWidget.setSegmentationNode(None)
+        self.segmentEditorWidget.setSourceVolumeNode(None)
+        self.segmentEditorWidget.setMRMLSegmentEditorNode(None)
+        self.segmentEditorWidget.setCurrentSegmentID("")  # Clear current segment
+        self.segmentEditorWidget.hide()
+        
+        for side in ["right", "left"]:
+            isMass = self.getSelectedButtonText(getattr(self.ui, f"{side}MassGroup"))
+            isAsymmetry = self.getSelectedButtonText(getattr(self.ui, f"{side}AsymmetryGroup"))
+            isCalcifications = self.getSelectedButtonText(getattr(self.ui, f"{side}CalcificationsGroup"))
+            getattr(self.ui, f"{side}AssessmentLabel").setText(f"Review of {side} breast assessment") 
+            getattr(self.ui, f"{side}AssessmentLabel").show()
+            getattr(self.ui, f"{side}MassGroup").show()
+            print(f"{isMass=}")
+            if isMass == "Yes":
+                getattr(self.ui, f"{side}MassShapeGroup").show()
+                getattr(self.ui, f"{side}MassMarginGroup").show()
+                getattr(self.ui, f"{side}MassDensityGroup").show()
+                getattr(self.ui, f"{side}MassFeaturesGroup").show()
+            getattr(self.ui, f"{side}AsymmetryGroup").show()
+            print(f"{isAsymmetry=}")
+            if isAsymmetry == "Yes":
+                getattr(self.ui, f"{side}AsymmetrySubtypeGroup").show()
+            getattr(self.ui, f"{side}ArchDistortionGroup").show()
+            if not any(getattr(self.ui, f"{side}ArchitecturalDistortion{name}").isChecked() for name in ["Yes", "No", "NA"]):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"Please answer the {side.capitalize()} architectural distortion question.")
+                return
+            getattr(self.ui, f"{side}CalcificationsGroup").show()
+            print(f"{isCalcifications=}")
+            if isCalcifications == "Yes":
+                getattr(self.ui, f"{side}CalcificationsMorphologyGroup").show()
+                getattr(self.ui, f"{side}CalcificationsDistributionGroup").show()
+                if getattr(self.ui, f"{side}MorphologySuspicious").isChecked():
+                    getattr(self.ui, f"{side}SuspiciousMorphologySubGroup").show()
+
+        
+        self.ui.nextQuestionButton.setText("Save and review segmentations")
+        # self.setNextButtonCallback(self.reviewSegmentations)
 
     def clearRadioSelections(self):
         for group in [
