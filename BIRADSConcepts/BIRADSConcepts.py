@@ -7,6 +7,7 @@ import vtkSegmentationCorePython as vtkSegCore
 import vtkSegmentationCorePython as vtkSeg
 from slicer.util import VTKObservationMixin
 import qt, ctk, vtk
+# from __main__ import qt
 from pathlib import Path
 
 
@@ -72,6 +73,51 @@ class BIRADSConceptsLogic:
         match = self.reader_df[self.reader_df['reader_name'].str.lower() == reader_name.lower()]
         return match.iloc[0]['reader_id'] if not match.empty else None
 
+class TemporaryInstructionFrame(qt.QFrame):
+    def __init__(self, message, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(qt.Qt.ToolTip | qt.Qt.FramelessWindowHint)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border: 1px solid #a9a9a9;
+                border-radius: 6px;
+                padding: 8px;
+            }
+            QLabel {
+                font-size: 12pt;
+                color: black;
+            }
+        """)
+
+        layout = qt.QHBoxLayout(self)
+        layout.setSpacing(12)
+        layout.setContentsMargins(12, 8, 12, 8)
+
+        # Warning icon
+        iconLabel = qt.QLabel()
+        icon = qt.QApplication.style().standardIcon(qt.QStyle.SP_MessageBoxWarning)
+        iconLabel.setPixmap(icon.pixmap(32, 32))
+        layout.addWidget(iconLabel)
+
+        # Message label
+        messageLabel = qt.QLabel(message)
+        messageLabel.setWordWrap(True)
+        layout.addWidget(messageLabel)
+
+        self.setLayout(layout)
+
+
+# class ClickFilter(qt.QObject):
+#     def __init__(self, target):
+#         super().__init__()
+#         self.target = target
+
+#     def eventFilter(self, obj, event):
+#         if event.type() == qt.QEvent.MouseButtonPress:
+#             self.target.close()
+#             slicer.util.mainWindow().removeEventFilter(self)
+#         return False
 
 class ReaderStudyController:
     def __init__(self, ui, logic: BIRADSConceptsLogic, segmentEditorWidget):
@@ -398,11 +444,12 @@ class ReaderStudyController:
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
         self.ui.nextQuestionButton.setText("Add next segment")
         self.launchSegmentEditor(viewTag, f"{viewTag}-Mass")
-        msgBox = qt.QMessageBox(slicer.util.mainWindow())
-        msgBox.setWindowTitle("Segmentation Instruction")
-        msgBox.setText(f"Please segment the mass in the {viewTag} view.")
-        msgBox.setStandardButtons(qt.QMessageBox.Ok)
-        msgBox.exec_()
+        # msgBox = qt.QMessageBox(slicer.util.mainWindow())
+        # msgBox.setWindowTitle("Segmentation Instruction")
+        # msgBox.setText(f"Please segment the mass in the {viewTag} view.")
+        # msgBox.setStandardButtons(qt.QMessageBox.Ok)
+        # msgBox.exec_()
+        self.showTemporaryInstruction(f"Please segment the mass in the {viewTag} view.")
 
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
@@ -628,11 +675,6 @@ class ReaderStudyController:
             segmentID = segmentationNode.GetSegmentation().AddEmptySegment(initialSegmentName)
             self.segmentEditorWidget.setCurrentSegmentID(segmentID)
     
-    # def updateAssociatedFeatureSelections(self):
-    #     if self.ui.featureNone.isChecked():
-    #         for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
-    #             if cb != self.ui.featureNone:
-    #                 cb.setChecked(False)
     def updateAssociatedFeatureSelections(self):
         if self.ui.featureNone.isChecked():
             for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
@@ -641,17 +683,12 @@ class ReaderStudyController:
                     cb.setChecked(False)
                     cb.blockSignals(False)
 
-
-    # def ensureNoneNotChecked(self):
-    #     if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
-    #         self.ui.featureNone.setChecked(False)
     def ensureNoneNotChecked(self):
         if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
             self.ui.featureNone.blockSignals(True)
             self.ui.featureNone.setChecked(False)
             self.ui.featureNone.blockSignals(False)
 
-    
     def updateArchDistortionAvailability(self):
         if self.ui.massRightYes.isChecked():
             self.ui.architecturalDistortionYes.setChecked(False)
@@ -817,7 +854,286 @@ class ReaderStudyController:
             if button.isChecked():
                 return button.text
         return None
+        
+    # def showTemporaryInstruction(self, message):
+    #     if hasattr(self, "temporaryInstructionDialog"):
+    #         self.temporaryInstructionDialog.close()
+
+    #     dlg = qt.QDialog(slicer.util.mainWindow())
+    #     dlg.setWindowFlags(qt.Qt.FramelessWindowHint | qt.Qt.Dialog)
+    #     dlg.setModal(False)
+    #     # dlg.setAttribute(qt.Qt.WA_TranslucentBackground)
+    #     dlg.setStyleSheet("""
+    #         QDialog {
+    #             background-color: #f0f0f0;
+    #             border: 1px solid gray;
+    #             border-radius: 10px;
+    #         }
+    #         QLabel#titleLabel {
+    #             font-weight: bold;
+    #             font-size: 15pt;
+    #             qproperty-alignment: AlignCenter;
+    #         }
+    #         QLabel#messageLabel {
+    #             font-weight: bold:
+    #             font-size: 15pt;
+    #             qproperty-alignment: AlignCenter;
+    #         }
+    #         QFrame#line {
+    #             background-color: gray;
+    #             max-height: 1px;
+    #             min-height: 1px;
+    #         }
+    #     """)
+
+    #     layout = qt.QVBoxLayout()
+    #     dlg.setLayout(layout)
+
+    #     titleLabel = qt.QLabel("Segmentation Instruction")
+    #     titleLabel.setObjectName("titleLabel")
+    #     layout.addWidget(titleLabel)
+
+    #     line = qt.QFrame()
+    #     line.setFrameShape(qt.QFrame.HLine)
+    #     line.setObjectName("line")
+    #     layout.addWidget(line)
+
+    #     messageLabel = qt.QLabel(message)
+    #     messageLabel.setObjectName("messageLabel")
+    #     layout.addWidget(messageLabel)
+
+    #     dlg.adjustSize()
+    # # Position in the center of the main window (no decorations)
+    #     mainWindow = slicer.util.mainWindow()
+    #     mainRect = mainWindow.geometry
+
+    #     centerX = mainRect.left() + mainRect.width() // 2
+    #     centerY = mainRect.top() + mainRect.height() // 2
+
+    #     dlg.move(
+    #         centerX - dlg.width // 2,
+    #         centerY - dlg.height // 2
+    #     )
+
+    #     self.temporaryInstructionDialog = dlg
+    #     dlg.show()
+
+    #     # Auto-close on any click in the main window
+    #     class ClickFilter(qt.QObject):
+    #         def eventFilter(filterSelf, obj, event):
+    #             if event.type() == qt.QEvent.MouseButtonPress:
+    #                 dlg.close()
+    #                 slicer.util.mainWindow().removeEventFilter(filterSelf)
+    #             return False
+
+    #     self.clickFilter = ClickFilter()
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
+    # def showTemporaryInstruction(self, text):
+    #     if hasattr(self, "temporaryInstructionDialog") and self.temporaryInstructionDialog:
+    #         self.temporaryInstructionDialog.close()
+
+    #     self.temporaryInstructionDialog = qt.QDialog(slicer.util.mainWindow())
+    #     self.temporaryInstructionDialog.setWindowFlags(
+    #         qt.Qt.FramelessWindowHint | qt.Qt.Dialog)
+    #     self.temporaryInstructionDialog.setAttribute(qt.Qt.WA_TranslucentBackground)
+    #     self.temporaryInstructionDialog.setModal(False)
+
+    #     mainLayout = qt.QVBoxLayout(self.temporaryInstructionDialog)
+    #     mainLayout.setContentsMargins(0, 0, 0, 0)
+
+    #     frame = qt.QFrame()
+    #     frame.setFrameShape(qt.QFrame.Box)
+    #     frame.setStyleSheet("""
+    #         QFrame {
+    #             background-color: #f0f0f0;
+    #             border: 1px solid gray;
+    #             border-radius: 10px;
+    #         }
+    #     """)
+    #     layout = qt.QVBoxLayout(frame)
+    #     layout.setContentsMargins(20, 20, 20, 20)
+    #     layout.setSpacing(15)
+
+    #     # Title label
+    #     titleLabel = qt.QLabel("Segmentation Instruction")
+    #     titleLabel.setStyleSheet("font-weight: bold; font-size: 16pt;")
+    #     layout.addWidget(titleLabel)
+
+    #     # Body text
+    #     textLabel = qt.QLabel(text)
+    #     textLabel.setStyleSheet("font-size: 12pt;")
+    #     textLabel.setWordWrap(True)
+    #     layout.addWidget(textLabel)
+
+    #     mainLayout.addWidget(frame)
+
+    #     # Size and position
+    #     self.temporaryInstructionDialog.setMinimumWidth(500)
+    #     self.temporaryInstructionDialog.setMinimumHeight(180)
+
+    #     # Get main window geometry
+    #     mainWindow = slicer.util.mainWindow()
+    #     mainRect = mainWindow.geometry  # NOT .frameGeometry, to avoid decorations
+
+    #     # Compute center
+    #     centerX = mainRect.left() + mainRect.width() // 2
+    #     centerY = mainRect.top() + mainRect.height() // 2
+
+    #     # Move dialog
+    #     self.temporaryInstructionDialog.move(
+    #         centerX - self.temporaryInstructionDialog.width // 2,
+    #         centerY - self.temporaryInstructionDialog.height // 2
+    #     )
+
+    #     class ClickFilter(qt.QObject):
+    #         def __init__(self, dialog):
+    #             super().__init__()
+    #             self.dialog = dialog
+
+    #         def eventFilter(self, obj, event):
+    #             if event.type() in [qt.QEvent.MouseButtonPress, qt.QEvent.KeyPress]:
+    #                 self.dialog.close()
+    #                 slicer.util.mainWindow().removeEventFilter(self)
+    #             return False
+
+    #     self.clickFilter = ClickFilter(self.temporaryInstructionDialog)
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+    #     self.temporaryInstructionDialog.show()
+
+
+    # def showTemporaryInstruction(self, message):
+    #     if hasattr(self, "temporaryInstructionFrame"):
+    #         self.temporaryInstructionFrame.close()
+
+    #     self.temporaryInstructionFrame = TemporaryInstructionFrame(message, slicer.util.mainWindow())
+    #     self.temporaryInstructionFrame.adjustSize()
+
+    #     # Center in main window
+    #     mw = slicer.util.mainWindow().geometry
+    #     fw = self.temporaryInstructionFrame.frameGeometry
+    #     x = mw.center().x() - fw.width() // 2
+    #     y = mw.center().y() - fw.height() // 2
+    #     self.temporaryInstructionFrame.move(x, y)
+    #     self.temporaryInstructionFrame.show()
+
+    #     # Install dismiss-on-click filter
+    #     self.clickFilter = ClickFilter(self.temporaryInstructionFrame)
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
     
+    def showTemporaryInstruction(self, text):
+        if hasattr(self, 'temporaryWarningFrame') and self.temporaryInstructionFrame:
+            self.temporaryInstructionFrame.deleteLater()
+
+        parent = slicer.util.mainWindow()
+
+        # Create a QFrame container
+        self.temporaryInstructionFrame = qt.QFrame(parent)
+        self.temporaryInstructionFrame.setFrameShape(qt.QFrame.StyledPanel)
+        self.temporaryInstructionFrame.setFrameShadow(qt.QFrame.Raised)
+        self.temporaryInstructionFrame.setStyleSheet("""
+            QFrame {
+                background-color: #fefefe;
+                border: 2px solid #f1c40f;
+                border-radius: 10px;
+            }
+            QLabel {
+                color: black;
+                padding: 10px;
+                font-size: 13pt;
+            }
+        """)
+
+        # Add an icon and message
+        layout = qt.QHBoxLayout(self.temporaryInstructionFrame)
+        iconLabel = qt.QLabel()
+        icon = qt.QApplication.style().standardIcon(qt.QStyle.SP_MessageBoxWarning)
+        iconLabel.setPixmap(icon.pixmap(32, 32))
+
+        textLabel = qt.QLabel(text)
+        textLabel.setWordWrap(True)
+
+        layout.addWidget(iconLabel)
+        layout.addWidget(textLabel)
+
+        self.temporaryInstructionFrame.adjustSize()
+
+        # Center it over the Slicer window
+        # mw = parent.geometry
+        # fw = self.temporaryInstructionFrame.frameGeometry()
+        # x = mw().center().x() - fw.width() // 2
+        # y = mw().center().y() - fw.height() // 2
+        # self.temporaryInstructionFrame.move(x, y)
+        mw = parent.geometry
+        fw = self.temporaryInstructionFrame.frameGeometry
+        x = mw.center().x() - fw.width() // 2
+        y = mw.center().y() - fw.height() // 2
+        self.temporaryInstructionFrame.move(x,y)
+
+        self.temporaryInstructionFrame.setWindowFlags(qt.Qt.ToolTip)
+        self.temporaryInstructionFrame.show()
+
+        # Hide on any click
+        class ClickFilter(qt.QObject):
+            def __init__(self, frame):
+                super().__init__()
+                self.frame = frame
+
+            def eventFilter(self, obj, event):
+                if event.type() == qt.QEvent.MouseButtonPress:
+                    self.frame.hide()
+                    self.frame.deleteLater()
+                    slicer.util.mainWindow().removeEventFilter(self)
+                    return True
+                return False
+
+        self.clickFilter = ClickFilter(self.temporaryInstructionFrame)
+        slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
+    # def showTemporaryInstruction(self, text):
+    #     if hasattr(self, 'temporaryOverlayLabel') and self.temporaryOverlayLabel:
+    #         self.temporaryOverlayLabel.deleteLater()
+
+    #     self.temporaryOverlayLabel = qt.QLabel(slicer.util.mainWindow())
+    #     self.temporaryOverlayLabel.setText(text)
+    #     self.temporaryOverlayLabel.setStyleSheet("""
+    #         QLabel {
+    #             background-color: rgba(50, 50, 50, 220);
+    #             color: white;
+    #             padding: 10px;
+    #             border-radius: 8px;
+    #             font-size: 14pt;
+    #         }
+    #     """)
+    #     self.temporaryOverlayLabel.setWindowFlags(qt.Qt.ToolTip)
+    #     self.temporaryOverlayLabel.adjustSize()
+
+    #     cursorPos = qt.QCursor.pos()
+    #     self.temporaryOverlayLabel.move(cursorPos + qt.QPoint(20, 20))
+    #     self.temporaryOverlayLabel.show()
+
+    #     class ClickFilter(qt.QObject):
+    #         def __init__(self, parent, label):
+    #             super(ClickFilter, self).__init__(parent)
+    #             self.label = label
+
+    #         def eventFilter(self, obj, event):
+    #             if event.type() == qt.QEvent.MouseButtonPress:
+    #                 self.label.hide()
+    #                 self.label.deleteLater()
+    #                 slicer.util.mainWindow().removeEventFilter(self)
+    #                 return True
+    #             return False
+
+    #     self.clickFilter = ClickFilter(slicer.util.mainWindow(), self.temporaryOverlayLabel)
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
     def setupLayout(self, volume_map):
         self.ensureCustomLayoutAvailable()
         self.volume_map = volume_map
