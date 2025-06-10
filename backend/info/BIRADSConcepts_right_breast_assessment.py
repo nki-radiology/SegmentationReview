@@ -1,4 +1,3 @@
-import inspect
 import numpy as np
 import pandas as pd
 import slicer
@@ -45,23 +44,11 @@ class BIRADSConceptsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
         self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
         self.segmentEditorLayout.addWidget(self.segmentEditorWidget)
-        # self.segmentEditorWidget.setAdvancedVisibility(False)
-        self.segmentEditorWidget.AddSegmentButton.hide()
-        self.segmentEditorWidget.RemoveSegmentButton.hide()
-        self.segmentEditorWidget.Show3DButton.hide()
-        self.segmentEditorWidget.SwitchToSegmentationsButton.hide()
-
 
         self.logic = BIRADSConceptsLogic()
         self.controller = ReaderStudyController(self.ui, self.logic, self.segmentEditorWidget)
         self.controller.hideStudyWidgets()
 
-        for btn in self.segmentEditorWidget.findChildren(qt.QComboBox):
-            try:
-                text = btn.currentText
-                print(f"objectName: {text}")
-            except:
-                pass
 
 class BIRADSConceptsLogic:
     def __init__(self):
@@ -86,12 +73,59 @@ class BIRADSConceptsLogic:
         match = self.reader_df[self.reader_df['reader_name'].str.lower() == reader_name.lower()]
         return match.iloc[0]['reader_id'] if not match.empty else None
 
+class TemporaryInstructionFrame(qt.QFrame):
+    def __init__(self, message, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(qt.Qt.ToolTip | qt.Qt.FramelessWindowHint)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border: 1px solid #a9a9a9;
+                border-radius: 6px;
+                padding: 8px;
+            }
+            QLabel {
+                font-size: 12pt;
+                color: black;
+            }
+        """)
+
+        layout = qt.QHBoxLayout(self)
+        layout.setSpacing(12)
+        layout.setContentsMargins(12, 8, 12, 8)
+
+        # Warning icon
+        iconLabel = qt.QLabel()
+        icon = qt.QApplication.style().standardIcon(qt.QStyle.SP_MessageBoxWarning)
+        iconLabel.setPixmap(icon.pixmap(32, 32))
+        layout.addWidget(iconLabel)
+
+        # Message label
+        messageLabel = qt.QLabel(message)
+        messageLabel.setWordWrap(True)
+        layout.addWidget(messageLabel)
+
+        self.setLayout(layout)
+
+
+# class ClickFilter(qt.QObject):
+#     def __init__(self, target):
+#         super().__init__()
+#         self.target = target
+
+#     def eventFilter(self, obj, event):
+#         if event.type() == qt.QEvent.MouseButtonPress:
+#             self.target.close()
+#             slicer.util.mainWindow().removeEventFilter(self)
+#         return False
+
 class ReaderStudyController:
     def __init__(self, ui, logic: BIRADSConceptsLogic, segmentEditorWidget):
         self.ui = ui
         self.logic = logic
         self.caseList = []
         self.currentCaseIndex = -1
+        self.massPresenceRight = None
         self.segmentEditorWidget = segmentEditorWidget
 
         self.ui.startStudyButton.connect('clicked(bool)', self.startStudy)
@@ -100,42 +134,29 @@ class ReaderStudyController:
         self.ui.biradsRight4.toggled.connect(lambda: self.ui.biradsRight4SubGroup.show() if self.ui.biradsRight4.isChecked() else self.ui.biradsRight4SubGroup.hide())
         self.ui.biradsLeft4.toggled.connect(lambda: self.ui.biradsLeft4SubGroup.show() if self.ui.biradsLeft4.isChecked() else self.ui.biradsLeft4SubGroup.hide())
 
+        self.ui.massRightYes.toggled.connect(self.toggleMassSubmenus)
+        self.ui.massRightNo.toggled.connect(self.toggleMassSubmenus)
+
         slicer.util.setDataProbeVisible(False)
 
-        for side in ["right", "left"]:
-            massYes = getattr(self.ui, f"mass{side.capitalize()}Yes")
-            massNo = getattr(self.ui, f"mass{side.capitalize()}No")
-            massYes.toggled.connect(lambda checked, s=side: self.toggleMassSubmenus(s))
-            massNo.toggled.connect(lambda checked, s=side: self.toggleMassSubmenus(s))
-            noneCheckBox = getattr(self.ui, f"{side}FeatureNone")
-            featuresGroup = getattr(self.ui, f"{side}MassFeaturesGroup")
+        self.ui.rightFeatureNone.toggled.connect(self.updateAssociatedFeatureSelections)
+        for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
+            if checkbox != self.ui.rightFeatureNone:
+                checkbox.toggled.connect(self.ensureNoneNotChecked)
 
-            noneCheckBox.toggled.connect(lambda checked, s=side: self.updateAssociatedFeatureSelections(s))
-            for cb in featuresGroup.findChildren(qt.QCheckBox):
-                if cb != noneCheckBox:
-                    cb.toggled.connect(lambda checked, s=side: self.ensureNoneNotChecked(s))
+        self.ui.rightCalcificationsYes.toggled.connect(self.toggleCalcificationSubmenus)
+        self.ui.rightCalcificationsNo.toggled.connect(lambda: self.toggleCalcificationSubmenus(False))
+
+        self.ui.morphologySuspicious.toggled.connect(self.toggleSuspiciousMorphologySubgroup)
+
+        self.ui.rightAsymmetryYes.toggled.connect(self.toggleAsymmetrySubtypes)
+        self.ui.rightAsymmetryNo.toggled.connect(lambda: self.toggleAsymmetrySubtypes(False))
         
-            calcificationsYes = getattr(self.ui, f"{side}CalcificationsYes")
-            calcificationsNo = getattr(self.ui, f"{side}CalcificationsNo")
-
-            calcificationsYes.toggled.connect(lambda checked, s=side: self.toggleCalcificationSubmenus(s))
-            calcificationsNo.toggled.connect(lambda checked, s=side: self.toggleCalcificationSubmenus(s, show=False))
-
-            morphologySuss = getattr(self.ui, f"{side}MorphologySuspicious")
-            morphologySuss.toggled.connect(lambda checked, s=side: self.toggleSuspiciousMorphologySubgroup(s))
-
-            asymmetryYes = getattr(self.ui, f"{side}AsymmetryYes")
-            asymmetryNo = getattr(self.ui, f"{side}AsymmetryNo")
-            asymmetryYes.toggled.connect(lambda checked, s=side: self.toggleAsymmetrySubtypes(s))
-            asymmetryNo.toggled.connect(lambda checked, s=side: self.toggleAsymmetrySubtypes(s, show=False))
-
-            archDistortionNA = getattr(self.ui, f"{side}ArchitecturalDistortionNA")
-
-            archDistortionNA.setEnabled(False)
-            massYes.toggled.connect(lambda checked, s=side: self.updateArchDistortionAvailability(s))
-            massNo.toggled.connect(lambda checked, s=side: self.updateArchDistortionAvailability(s))
-
-            self.toggleCalcificationSubmenus(side=side, show=False)
+        self.ui.rightArchitecturalDistortionNA.setEnabled(False)
+        self.ui.massRightYes.toggled.connect(self.updateArchDistortionAvailability)
+        self.ui.massRightNo.toggled.connect(self.updateArchDistortionAvailability)
+        
+        self.toggleCalcificationSubmenus(False) # Hide by default
 
     def hideStudyWidgets(self):
         self.ui.instructionLabel.hide()
@@ -156,7 +177,7 @@ class ReaderStudyController:
         self.ui.rightMassFeaturesGroup.hide()
         self.ui.rightAsymmetryGroup.hide()
         self.ui.rightAsymmetrySubtypeGroup.hide()
-        self.ui.rightArchDistortionGroup.hide()
+        self.ui.archDistortionGroup.hide()
         self.ui.rightCalcificationsGroup.hide()
         self.ui.rightCalcificationsMorphologyGroup.hide()
         self.ui.rightSuspiciousMorphologySubGroup.hide()
@@ -173,7 +194,6 @@ class ReaderStudyController:
         self.ui.leftCalcificationsGroup.hide()
         self.ui.leftCalcificationsMorphologyGroup.hide()
         self.ui.leftSuspiciousMorphologySubGroup.hide()
-        self.ui.leftCalcificationsDistributionGroup.hide()
         self.segmentEditorWidget.hide()
 
     def showBiradsSection(self):
@@ -185,8 +205,8 @@ class ReaderStudyController:
         self.ui.nextQuestionButton.show()
 
     def validateBiradsAndShowDensity(self):
-        self.ui.nextQuestionButton.show()  
-        self.ui.save_and_next.hide()
+        self.ui.nextQuestionButton.show()  # Reuse this button for density transition
+        self.ui.save_and_next.hide()       # Ensure Save and Next is hidden
 
         right_score = self.getSelectedButtonText(self.ui.biradsRightGroup)
         left_score = self.getSelectedButtonText(self.ui.biradsLeftGroup)
@@ -201,7 +221,11 @@ class ReaderStudyController:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select BI-RADS 4 subcategory for the left breast.")
             return
         
-        self.setNextButtonCallback(self.validateDensity)
+        self.ui.nextQuestionButton.clicked.disconnect()  # Disconnect any previous connections
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateDensity)
+        
+        self.ui.nextQuestionButton.clicked.disconnect()
+        self.ui.nextQuestionButton.clicked.connect(self.validateDensity)
         self.showDensitySection()
 
     def showDensitySection(self):
@@ -224,102 +248,109 @@ class ReaderStudyController:
         if not right_density or not left_density:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select density for both sides before continuing.")
             return
+        
+        self.ui.nextQuestionButton.clicked.disconnect()
+        self.ui.nextQuestionButton.clicked.connect(self.validateRightMass)
 
-        self.showBreastAssessment(side="right")
+        self.showRightBreastAssessment()
     
-    def showBreastAssessment(self, side):
+    def showRightBreastAssessment(self):
         self.ui.instructionLabel.hide()
         self.ui.densityRightGroup.hide()
         self.ui.densityLeftGroup.hide()
-
-        # Reset to 4-up layout
-        slicer.app.layoutManager().setLayout(501)
-        self.setupLayout(self.volume_map)
-
-        # Hide all segmentations
-        for tag in ["RCC", "RMLO", "LCC", "LMLO"]:
-            segNode = slicer.mrmlScene.GetFirstNodeByName(f"{tag}-Segmentations")
-            if segNode and segNode.GetDisplayNode():
-                segNode.GetDisplayNode().SetVisibility(False)
-        
-        # Properly deactivate segmentation tools
-        self.segmentEditorWidget.setSegmentationNode(None)
-        self.segmentEditorWidget.setSourceVolumeNode(None)
-        self.segmentEditorWidget.setMRMLSegmentEditorNode(None)
-        self.segmentEditorWidget.setCurrentSegmentID("")  # Clear current segment
-        self.segmentEditorWidget.hide()
-
-
-
-        if side == "left":
-            self.ui.rightAssessmentLabel.hide()
-        getattr(self.ui, f"{side}AssessmentLabel").show()
-        getattr(self.ui, f"{side}MassGroup").show()
-        getattr(self.ui, f"{side}AsymmetryGroup").show()
-        getattr(self.ui, f"{side}ArchDistortionGroup").show()
-        getattr(self.ui, f"{side}CalcificationsGroup").show()
+        self.ui.rightAssessmentLabel.show()
+        self.ui.rightMassGroup.show()
+        self.ui.rightAsymmetryGroup.show()
+        self.ui.archDistortionGroup.show()
+        self.ui.rightCalcificationsGroup.show()
 
         self.ui.nextQuestionButton.setText("Next Question")
-        self.setNextButtonCallback(lambda: self.validateMass(side=side))
+        self.ui.nextQuestionButton.clicked.disconnect()
+        self.ui.nextQuestionButton.connect('clicked(bool)', self.validateRightMass)
     
-    def validateMass(self, side):
-        sideCapital = side.capitalize()
-        sideLower = side.lower()
-
-        # ---- MASS CHECK ---- #
-        is_mass = self.getSelectedButtonText(getattr(self.ui, f"{sideLower}MassGroup"))
+    def validateRightMass(self):
+        # --- MASS CHECK ---
+        is_mass = self.getSelectedButtonText(self.ui.rightMassGroup)
         if not is_mass:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select Yes or No for mass presence.")
             return
-        
+
+        self.massPresenceRight = is_mass
+        print(f"Mass presence (right breast): {self.massPresenceRight}")
+
         if is_mass.lower() == "yes":
-            for name, msg in [
-                (f"{sideLower}MassShapeGroup", "mass shape"),
-                (f"{sideLower}MassMarginGroup", "mass margin"),
-                (f"{sideLower}MassDensityGroup", "mass density")
-            ]:
-                if not self.getSelectedButtonText(getattr(self.ui, name)):
-                    qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"Please select a {msg}.")
-                    return
-            
-            features = [getattr(self.ui, f"{sideLower}Feature{name}") for name in ["SkinRetraction", "NippleRetraction", "SkinThickening", "TrabecularThickening",
-            "AxillaryAdenopathy", "ArchitecturalDistortion", "Calcifications", "None"]]
+            # Validate mass shape
+            if not self.getSelectedButtonText(self.ui.rightMassShapeGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass shape.")
+                return
+
+            # Validate mass margin
+            if not self.getSelectedButtonText(self.ui.rightMassMarginGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass margin.")
+                return
+
+            # Validate mass density
+            if not self.getSelectedButtonText(self.ui.rightMassDensityGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a mass density.")
+                return
+
+            # Validate associated features
+            features = [
+                self.ui.rightFeatureSkinRetraction, self.ui.rightFeatureNippleRetraction,
+                self.ui.rightFeatureSkinThickening, self.ui.rightFeatureTrabecularThickening,
+                self.ui.rightFeatureAxillaryAdenopathy, self.ui.rightFeatureArchitecturalDistortion,
+                self.ui.rightFeatureCalcifications, self.ui.rightFeatureNone
+            ]
             selected = [cb for cb in features if cb.isChecked()]
             if not selected:
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select at least one associated feature.")
                 return
-        
-        # ---- ASYMMETRY CHECK ---- #
-        asymmetry = self.getSelectedButtonText(getattr(self.ui, f"{sideLower}AsymmetryGroup"))
+            if self.ui.rightFeatureNone.isChecked() and len(selected) > 1:
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Conflict", "'None of the above' cannot be selected with other options.")
+                return
+
+        # --- ASYMMETRY CHECK ---
+        asymmetry = self.getSelectedButtonText(self.ui.rightAsymmetryGroup)
         if not asymmetry:
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"Please answer the {sideCapital} asymmetry question.")
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the asymmetry question.")
             return
         if asymmetry.lower() == "yes":
-            if not any(getattr(self.ui, f"{sideLower}Asymmetry{name}").isChecked() for name in ["Focal", "Global", "Developing"]):
+            subtype_selected = any(
+                cb.isChecked() for cb in [
+                    self.ui.rightAsymmetryFocal,
+                    self.ui.rightAsymmetryGlobal,
+                    self.ui.rightAsymmetryDeveloping
+                ]
+            )
+            if not subtype_selected:
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select at least one asymmetry type.")
                 return
-        
-        # ---- ARCHITECTURAL DISTORTION CHECK ---- #
-        if not any(getattr(self.ui, f"{sideLower}ArchitecturalDistortion{name}").isChecked() for name in ["Yes", "No", "NA"]):
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"Please answer the {sideCapital} architectural distortion question.")
-            return
-        
-        # ---- CALCIFICATIONS CHECK ---- #
-        calcifications = self.getSelectedButtonText(getattr(self.ui, f"{sideLower}CalcificationsGroup"))
-        if not calcifications:
-            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"Please answer the {sideCapital} calcifications question.")
-            return
-        if calcifications.lower() == "yes":
-            for name, msg in [
-                (f"{sideLower}CalcificationsMorphologyGroup", "calcification morphology"),
-                (f"{sideLower}CalcificationsDistributionGroup", "calcification distribution") 
-            ]:
-                if not self.getSelectedButtonText(getattr(self.ui, name)):
-                    qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", f"Please select a {msg}.")
-                    return
-        self.promptQuestionLockConfirmation(side=side)
 
-    def promptQuestionLockConfirmation(self, side: str,):
+        # --- ARCHITECTURAL DISTORTION CHECK ---
+        if not any(rb.isChecked() for rb in [self.ui.rightArchitecturalDistortionYes, self.ui.rightArchitecturalDistortionNo, self.ui.rightArchitecturalDistortionNA]):
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the architectural distortion question.")
+            return
+
+        # --- CALCIFICATIONS CHECK ---
+        calcifications = self.getSelectedButtonText(self.ui.rightCalcificationsGroup)
+        if not calcifications:
+            qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the calcifications question.")
+            return
+
+        if calcifications.lower() == "yes":
+            # Morphology
+            if not self.getSelectedButtonText(self.ui.rightCalcificationsMorphologyGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a calcification morphology.")
+                return
+
+            # Distribution
+            if not self.getSelectedButtonText(self.ui.rightCalcificationsDistributionGroup):
+                qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a calcification distribution.")
+                return
+
+        self.promptQuestionLockConfirmation()
+    
+    def promptQuestionLockConfirmation(self):
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
         msgBox.setWindowTitle("Confirm Answers")
         msgBox.setText("Do you want to modify your answers?\nIf you press Continue, you will only be able to edit them at the end of the case.")
@@ -328,149 +359,128 @@ class ReaderStudyController:
         msgBox.button(qt.QMessageBox.Cancel).setText("Edit answers")
         ret = msgBox.exec_()
 
-        sideCapital = side.capitalize()
-
         if ret == qt.QMessageBox.Ok:
-            getattr(self.ui, f"{side}MassGroup").hide()
-            getattr(self.ui, f"{side}MassShapeGroup").hide()
-            getattr(self.ui, f"{side}MassMarginGroup").hide()
-            getattr(self.ui, f"{side}MassDensityGroup").hide()
-            getattr(self.ui, f"{side}MassFeaturesGroup").hide()
-            getattr(self.ui, f"{side}AsymmetryGroup").hide()
-            getattr(self.ui, f"{side}AsymmetrySubtypeGroup").hide()
-            getattr(self.ui, f"{side}ArchDistortionGroup").hide()
-            getattr(self.ui, f"{side}CalcificationsGroup").hide()
-            getattr(self.ui, f"{side}CalcificationsMorphologyGroup").hide()
-            getattr(self.ui, f"{side}SuspiciousMorphologySubGroup").hide()
-            getattr(self.ui, f"{side}CalcificationsDistributionGroup").hide()
+            # self.lockQuestionInputs()
+            # Hide the questions after confirmation
+            self.ui.rightMassGroup.hide()
+            self.ui.rightMassShapeGroup.hide()
+            self.ui.rightMassMarginGroup.hide()
+            self.ui.rightMassDensityGroup.hide()
+            self.ui.rightMassFeaturesGroup.hide()
+            self.ui.rightAsymmetryGroup.hide()
+            self.ui.rightAsymmetrySubtypeGroup.hide()
+            self.ui.archDistortionGroup.hide()
+            self.ui.rightCalcificationsGroup.hide()
+            self.ui.rightCalcificationsMorphologyGroup.hide()
+            self.ui.rightSuspiciousMorphologySubGroup.hide()
+            self.ui.rightCalcificationsDistributionGroup.hide()
 
-            massYes = getattr(self.ui, f"mass{sideCapital}Yes")
-            asimmetryYes = getattr(self.ui, f"{side}AsymmetryYes")
-            calcificationsYes = getattr(self.ui, f"{side}CalcificationsYes")
-            archDistortionYes = getattr(self.ui, f"{side}ArchitecturalDistortionYes")
 
-            if massYes.isChecked() or asimmetryYes.isChecked() or calcificationsYes.isChecked() or archDistortionYes.isChecked():
-                if side=="right":
-                    self.runCCSegmentation(side="right")
-                else:
-                    self.runCCSegmentation(side="left")
+            # Determine what to do based on the answers
+            if self.ui.massRightYes.isChecked() or self.ui.rightAsymmetryYes.isChecked() or \
+            self.ui.rightCalcificationsYes.isChecked() or self.ui.rightArchitecturalDistortionYes.isChecked():
+                self.runRCCSegmentation()
             else:
-                getattr(self.ui, f"{side}AssessmentLabel").hide()
-                self.showBreastAssessment(side="left")
- 
-    def startBreastSegmentationSequence(self, viewTag: str, side: str):
-        self.segmentationQueue = []
-        sideCapital = side.capitalize()
-        massYes = getattr(self.ui, f"mass{sideCapital}Yes")
-        asymmetryYes = getattr(self.ui, f"{side}AsymmetryYes")
-        calcificationsYes = getattr(self.ui, f"{side}CalcificationsYes")
-        archDistortionYes = getattr(self.ui, f"{side}ArchitecturalDistortionYes")
-
-        if massYes.isChecked():
-            self.segmentationQueue.append(lambda: self.segmentMass(viewTag, side))
-            if asymmetryYes.isChecked():
-                self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag, side))
-                if calcificationsYes.isChecked():
-                    self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag, side))
-            else:
-                if calcificationsYes.isChecked():
-                   self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag, side))
-        else:
-            if asymmetryYes.isChecked():
-                self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag, side))
-                if archDistortionYes.isChecked():
-                    self.segmentationQueue.append(lambda: self.segmentDistortion(viewTag, side))
-                if calcificationsYes.isChecked():
-                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag, side)) 
-                else:
-                   if calcificationsYes.isChecked():
-                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag, side))
-            else:
-                if archDistortionYes.isChecked():
-                    self.segmentationQueue.append(lambda: self.segmentDistortion(viewTag, side))
-                if calcificationsYes.isChecked():
-                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag, side)) 
-                else:
-                   if calcificationsYes.isChecked():
-                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag, side)) 
-        self.runNextSegmentationTask(viewTag, side)
-    
-    def runCCSegmentation(self, side: str):
-        if side == "right":
-            self.startBreastSegmentationSequence("RCC", side)
-        else:
-            self.startBreastSegmentationSequence("LCC", side)
-    
-    def runMLOSegmentation(self, side: str):
-        if side == "right":
-            SegNode = slicer.mrmlScene.GetFirstNodeByName("RCC-Segmentations")
-            if SegNode:
-                displayNode = SegNode.GetDisplayNode()
-                if displayNode:
-                    displayNode.SetVisibility(False)
-
-            self.startBreastSegmentationSequence("RMLO", side)
-        else:
-            SegNode = slicer.mrmlScene.GetFirstNodeByName("LCC-Segmentations")
-            if SegNode:
-                displayNode = SegNode.GetDisplayNode()
-                if displayNode:
-                    displayNode.SetVisibility(False)
-
-            self.startBreastSegmentationSequence("LMLO", side)
-
-    def runNextSegmentationTask(self, viewTag: str, side: str):
-        if not self.segmentationQueue:
-            if viewTag=="RCC" and side == "right":
-                print("Im in this if: if viewTag=='RCC' and side == 'right'")
-                self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-                self.setNextButtonCallback(lambda: self.promptSegmentation("RMLO", "right"))
-            elif viewTag == "RMLO" and side == "right":
-                self.ui.nextQuestionButton.setText("Continue to left breast assessment")
-                self.setNextButtonCallback(lambda: self.showBreastAssessment("left"))
-            elif viewTag == "LCC" and side == "left":
-                self.ui.nextQuestionButton.setText("Continue to L-MLO segmentation")
-                self.setNextButtonCallback(lambda: self.promptSegmentation("LMLO", "left"))
-            elif viewTag=="LMLO" and side == "left":
-                self.ui.nextQuestionButton.setText("Continue to case review")
                 pass
-                # self.setNextButtonCallback(self.caseReview)
+                # self.startLeftBreastAssessment()  # You will need to define this if not already
+ 
+    def startRightBreastSegmentationSequence(self, viewTag):
+        self.segmentationQueue = []
+
+        if self.ui.massRightYes.isChecked():
+            print(f"I'm before self.segmentationQueue.append(Mass), {viewTag}")
+            self.segmentationQueue.append(lambda: self.segmentMass(viewTag))
+            if self.ui.rightAsymmetryYes.isChecked():
+                self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag))
+                if self.ui.rightCalcificationsYes.isChecked():
+                    self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag))
+            else:
+                if self.ui.rightCalcificationsYes.isChecked():
+                   self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag))
+        else:
+            if self.ui.rightAsymmetryYes.isChecked():
+                self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag))
+                if self.ui.rightArchitecturalDistortionYes.isChecked():
+                    self.segmentationQueue.append(lambda: self.segmentDistortion(viewTag))
+                if self.ui.rightCalcificationsYes.isChecked():
+                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
+                else:
+                   if self.ui.rightCalcificationsYes.isChecked():
+                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag))
+            else:
+                if self.ui.rightArchitecturalDistortionYes.isChecked():
+                    self.segmentationQueue.append(lambda: self.segmentDistortion(viewTag))
+                if self.ui.rightCalcificationsYes.isChecked():
+                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
+                else:
+                   if self.ui.rightCalcificationsYes.isChecked():
+                       self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
+        self.runNextSegmentationTask(viewTag)
+    
+    def runRCCSegmentation(self):
+        self.startRightBreastSegmentationSequence("RCC")
+    
+    def runRMLOSegmentation(self):
+        rccSegNode = slicer.mrmlScene.GetFirstNodeByName("RCC-Segmentations")
+        if rccSegNode:
+            displayNode = rccSegNode.GetDisplayNode()
+            if displayNode:
+                displayNode.SetVisibility(False)
+
+        self.startRightBreastSegmentationSequence("RMLO")
+
+    def runNextSegmentationTask(self, viewTag):
+        if not self.segmentationQueue:
+            if viewTag=="RCC":
+                self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
+                try:
+                    self.ui.nextQuestionButton.clicked.disconnect()
+                except TypeError:
+                    pass
+                self.ui.nextQuestionButton.clicked.connect(self.promptRMLOSegmentation)
+                return
+            elif viewTag=="RMLO":
+                self.ui.nextQuestionButton.setText("Continue to left breast assessment")
+                try:
+                    self.ui.nextQuestionButton.clicked.disconnect()
+                except TypeError:
+                    pass
+                return
 
         nextTask = self.segmentationQueue.pop(0)
         nextTask()
 
-    def segmentMass(self, viewTag: str, side: str):
+    def segmentMass(self, viewTag):
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the mass in the {viewTag} view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
         self.ui.nextQuestionButton.setText("Add next segment")
-        self.launchSegmentEditor(viewTag, f"{viewTag}-{side}-Mass")
+        self.launchSegmentEditor(viewTag, f"{viewTag}-Mass")
         # msgBox = qt.QMessageBox(slicer.util.mainWindow())
         # msgBox.setWindowTitle("Segmentation Instruction")
         # msgBox.setText(f"Please segment the mass in the {viewTag} view.")
         # msgBox.setStandardButtons(qt.QMessageBox.Ok)
         # msgBox.exec_()
         self.showTemporaryInstruction(f"Please segment the mass in the {viewTag} view.")
-        self.setNextButtonCallback(lambda: self.validateMassSegmentation(viewTag, side))
 
-        # try:
-        #     self.ui.nextQuestionButton.clicked.disconnect()
-        # except TypeError:
-        #     pass
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
 
-        # self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMassSegmentation(viewTag, side))
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMassSegmentation(viewTag))
 
-    def validateMassSegmentation(self, viewTag: str, side: str):
+    def validateMassSegmentation(self, viewTag):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
-        massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(f"{viewTag}-{side}-Mass")
+        massID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(f"{viewTag}-Mass")
         if self.isSegmentEmpty(segmentationNode, massID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Mass segment is empty. Please complete it.")
             return
 
-        self.segmentationQueue.insert(0, lambda: self.segmentMargins(viewTag, side))
-        self.runNextSegmentationTask(viewTag, side)
+        self.segmentationQueue.insert(0, lambda: self.segmentMargins(viewTag))
+        self.runNextSegmentationTask(viewTag)
     
-    def segmentMargins(self, viewTag: str, side: str):
+    def segmentMargins(self, viewTag):
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
         msgBox.setWindowTitle("Segmentation Instruction")
         msgBox.setText(f"Please segment the margins of the mass in the {viewTag} view.")
@@ -478,7 +488,7 @@ class ReaderStudyController:
         msgBox.exec_()
 
         segmentationNode = self.segmentEditorWidget.segmentationNode()
-        segmentName = f"{viewTag}-{side}-Margins"
+        segmentName = f"{viewTag}-Margins"
         existingID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(segmentName)
         if existingID:
             marginsSegmentID = existingID
@@ -489,85 +499,59 @@ class ReaderStudyController:
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the margins of the mass in the {viewTag} view.\n"
                                         "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        self.associatedFeaturesToSegment = self.getSelectedFeatures(viewTag, side)
+        self.associatedFeaturesToSegment = self.getSelectedFeatures(viewTag)
         noMoreTasks = not self.segmentationQueue and len(self.associatedFeaturesToSegment)==0
         try:
             self.ui.nextQuestionButton.clicked.disconnect()
         except TypeError:
             pass
 
-        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMarginsSegmentation(viewTag, side, noMoreTasks))
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateMarginsSegmentation(viewTag, noMoreTasks))
         if noMoreTasks:
-            if viewTag == "RCC" and side == "right":
-                print(f"Im in if viewTag == 'RCC' and side == 'right':")
-                self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-            elif viewTag == "RMLO" and side == "right":
-               self.ui.nextQuestionButton.setText("Continue to left breast assessment") 
-            elif viewTag == "LCC" and side == "left":
-               self.ui.nextQuestionButton.setText("Continue to L-MLO segmentation")
-            elif viewTag == "LMLO" and side == "left":
-               self.ui.nextQuestionButton.setText("Continue to case review")
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation" if viewTag=="RCC" else "Continue to left breast assessment")
         else:
             self.ui.nextQuestionButton.setText("Add next segment")
             
     
-    def validateMarginsSegmentation(self, viewTag: str, side: str, noMoreTasksAfterMargins: bool):
-        print(f"I'm in validateMarginsSegmentation with {viewTag} and {side}")
+    def validateMarginsSegmentation(self, viewTag, noMoreTasksAfterMargins):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
-        marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(f"{viewTag}-{side}-Margins")
+        marginsID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName(f"{viewTag}-Margins")
         if self.isSegmentEmpty(segmentationNode, marginsID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", "Margins segment is empty. Please complete it.")
             return
         
-        massFeaturesGroup = getattr(self.ui, f"{side}MassFeaturesGroup")
         if not noMoreTasksAfterMargins:
-            print(f"I'm in if not noMoreTasksAfterMargins")
-            if "CC" in viewTag:
-                print("I'm in if 'CC' in viewTage")
-                print(f"side")
-                if any(cb.isChecked() for cb in massFeaturesGroup.findChildren(qt.QCheckBox) if cb.text not in ["None of the above", "Axillary adenopathy"]):
-                    print("I'm in the if any if in the if CC in validateMargins")
-                    self.currentFeatureIndex = 0
-                    self.segmentNextFeatureInQueue(viewTag, side)
-                else:
-                    print("I'm in the else of the if any if in the if CC in validateMargins")
-                    self.runNextSegmentationTask(viewTag, side)
-            elif "MLO" in viewTag:
-                if any(cb.isChecked() for cb in massFeaturesGroup.findChildren(qt.QCheckBox) if cb.text != "None of the above"):
-                    self.currentFeatureIndex = 0
-                    self.segmentNextFeatureInQueue(viewTag, side)
-                else:
-                    self.runNextSegmentationTask(viewTag, side)
-        else:
             if viewTag == "RCC":
-                self.promptSegmentation("RMLO", "right")
+                if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text not in ["None of the above", "Axillary adenopathy"]):
+                    self.currentFeatureIndex = 0
+                    self.segmentNextFeatureInQueue(viewTag)
+                else:
+                    self.runNextSegmentationTask(viewTag)
             elif viewTag == "RMLO":
-                msgBox = qt.QMessageBox(slicer.util.mainWindow())
-                msgBox.setWindowTitle("Confirm Answers")
-                msgBox.setText("Do you want to modify your segmentations?\nIf you press Continue, you will only be able to edit them at the end of the case.")
-                msgBox.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
-                msgBox.button(qt.QMessageBox.Ok).setText("Continue")
-                msgBox.button(qt.QMessageBox.Cancel).setText("Edit answers")
-                ret = msgBox.exec_()
-
-                if ret == qt.QMessageBox.Ok:
-                    self.showBreastAssessment("left")
-            elif viewTag == "LCC":
-                self.promptSegmentation("LMLO", "left")
-            elif viewTag == "LMLO":
+                print(f"I am in the if RMLO in validateMarginsSegmentation in {viewTag}")
+                if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb.text != "None of the above"):
+                    self.currentFeatureIndex = 0
+                    self.segmentNextFeatureInQueue(viewTag)
+                else:
+                    self.runNextSegmentationTask(viewTag)
+        else:
+            if viewTag=="RCC":
+                self.promptRMLOSegmentation()
+            elif viewTag=="RMLO":
                 pass
-                # self.caseReview()
-                
-    def segmentNextFeatureInQueue(self, viewTag: str, side: str):
+            # self.runNextSegmentationTask(viewTag)
+
+
+    def segmentNextFeatureInQueue(self, viewTag):
         if self.currentFeatureIndex >= len(self.associatedFeaturesToSegment):
-            self.runNextSegmentationTask(viewTag, side)
+            self.runNextSegmentationTask(viewTag)
             return
 
         feature = self.associatedFeaturesToSegment[self.currentFeatureIndex]
         self.currentFeatureIndex += 1
 
         segmentationNode = self.segmentEditorWidget.segmentationNode()
-        segmentID = segmentationNode.GetSegmentation().AddEmptySegment(f"{viewTag}-{side}-{feature}")
+        segmentID = segmentationNode.GetSegmentation().AddEmptySegment(f"{viewTag}-{feature}")
         self.segmentEditorWidget.setCurrentSegmentID(segmentID)
 
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
@@ -579,66 +563,48 @@ class ReaderStudyController:
         self.ui.instructionLabel.setText(f"Please segment the {feature} in the {viewTag} view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
         noMoreTasks = not self.segmentationQueue and self.currentFeatureIndex==len(self.associatedFeaturesToSegment)
-        self.setNextButtonCallback(lambda: self.validateFeatureSegmentation(segmentID, feature, viewTag, side, noMoreTasks))
-        
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateFeatureSegmentation(segmentID, feature, viewTag, noMoreTasks))
         if noMoreTasks:
-            if viewTag == "RCC" and side == "right":
-                self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-            elif viewTag == "RMLO" and side == "right":
-               self.ui.nextQuestionButton.setText("Continue to left breast assessment") 
-            elif viewTag == "LCC" and side == "left":
-               self.ui.nextQuestionButton.setText("Continue to L-MLO segmentation")
-            elif viewTag == "LMLO" and side == "left":
-               self.ui.nextQuestionButton.setText("Continue to case review")
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation" if viewTag=="RCC" else "Continue to left breast assessment")
         else:
             self.ui.nextQuestionButton.setText("Add next segment")
 
-    def validateFeatureSegmentation(self, segmentID: str, feature: str, viewTag: str, side: str, noMoreTasksAfterFeatures: bool):
+    def validateFeatureSegmentation(self, segmentID, feature, viewTag, noMoreTasksAfterFeatures):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", f"{feature} segment is empty. Please complete it.")
             return
         if not noMoreTasksAfterFeatures:
-            self.segmentNextFeatureInQueue(viewTag, side)
+            self.segmentNextFeatureInQueue(viewTag)
         else:
-            if viewTag == "RCC":
-                self.promptSegmentation("RMLO", "right")
-            elif viewTag == "RMLO":
-                msgBox = qt.QMessageBox(slicer.util.mainWindow())
-                msgBox.setWindowTitle("Confirm Answers")
-                msgBox.setText("Do you want to modify your segmentations?\nIf you press Continue, you will only be able to edit them at the end of the case.")
-                msgBox.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
-                msgBox.button(qt.QMessageBox.Ok).setText("Continue")
-                msgBox.button(qt.QMessageBox.Cancel).setText("Edit answers")
-                ret = msgBox.exec_()
-
-                if ret == qt.QMessageBox.Ok:
-                    self.showBreastAssessment("left")
-            elif viewTag == "LCC":
-                self.promptSegmentation("LMLO", "left")
-            elif viewTag == "LMLO":
+            if viewTag=="RCC":
+                self.promptRMLOSegmentation()
+            elif viewTag=="RMLO":
                 pass
-                # self.reviewCase()
-                    
-    def segmentAsymmetry(self, viewTag: str, side: str):
-        self.startGenericSegmentation(f"{viewTag}-{side}-Asymmetry", viewTag, side)
 
-    def segmentDistortion(self, viewTag:str, side: str):
-        self.startGenericSegmentation(f"{viewTag}-{side}-MainDistortion", viewTag, side)
+    def segmentAsymmetry(self, viewTag):
+        self.startGenericSegmentation(f"{viewTag}-Asymmetry", viewTag)
 
-    def segmentCalcifications(self, viewTag: str, side:str):
-        self.startGenericSegmentation(f"{viewTag}-{side}-MainCalcifications", viewTag, side)
+    def segmentDistortion(self, viewTag):
+        self.startGenericSegmentation(f"{viewTag}-MainDistortion", viewTag)
 
-    def startGenericSegmentation(self, name: str, viewTag: str, side: str):
+    def segmentCalcifications(self, viewTag):
+        self.startGenericSegmentation(f"{viewTag}-MainCalcifications", viewTag)
+
+    def startGenericSegmentation(self, name, viewTag):
         self.ui.instructionLabel.show()
         self.ui.instructionLabel.setText(f"Please segment the {name} in the {viewTag} view.\n" \
                 "Tip: use the threshold tool and then the paint and erase tools. You can also use the smoothing function.")
-        # if len(self.segmentationQueue) == 0 and viewTag=="RCC":
-        #     self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-        # elif len(self.segmentationQueue) == 0 and viewTag=="RMLO":
-        #     self.ui.nextQuestionButton.setText("Continue to left breast assessment") 
-        # else:
-        #     self.ui.nextQuestionButton.setText("Add next segment")
+        if len(self.segmentationQueue) == 0 and viewTag=="RCC":
+            self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
+        elif len(self.segmentationQueue) == 0 and viewTag=="RMLO":
+            self.ui.nextQuestionButton.setText("Continue to left breast assessment") 
+        else:
+            self.ui.nextQuestionButton.setText("Add next segment")
 
         self.launchSegmentEditor(viewTag, name)
 
@@ -648,53 +614,27 @@ class ReaderStudyController:
         msgBox.setStandardButtons(qt.QMessageBox.Ok)
         msgBox.exec_()
 
-        if not self.segmentationQueue:
-            if viewTag == "RCC" and side == "right":
-                print(f"Im in if viewTag == 'RCC' and side == 'right':")
-                self.ui.nextQuestionButton.setText("Continue to R-MLO segmentation")
-            elif viewTag == "RMLO" and side == "right":
-               self.ui.nextQuestionButton.setText("Continue to left breast assessment") 
-            elif viewTag == "LCC" and side == "left":
-               self.ui.nextQuestionButton.setText("Continue to L-MLO segmentation")
-            elif viewTag == "LMLO" and side == "left":
-               self.ui.nextQuestionButton.setText("Continue to case review")
-        else:
-            self.ui.nextQuestionButton.setText("Add next segment") 
+        try:
+            self.ui.nextQuestionButton.clicked.disconnect()
+        except TypeError:
+            pass
 
-        self.setNextButtonCallback(lambda: self.validateGenericSegmentation(name, viewTag, side))
+        self.ui.nextQuestionButton.clicked.connect(lambda: self.validateGenericSegmentation(name, viewTag))
 
-    def validateGenericSegmentation(self, segmentID: str, viewTag: str, side: str):
+    def validateGenericSegmentation(self, segmentID, viewTag):
         segmentationNode = self.segmentEditorWidget.segmentationNode()
         if self.isSegmentEmpty(segmentationNode, segmentID, self.referenceVolumeNode):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Empty Segment", f"{segmentID} is empty. Please complete it.")
             return
 
         if not self.segmentationQueue:
-            if viewTag == "RCC":
-                self.promptSegmentation("RMLO", "right")
-            elif viewTag == "RMLO":
-                msgBox = qt.QMessageBox(slicer.util.mainWindow())
-                msgBox.setWindowTitle("Confirm Answers")
-                msgBox.setText("Do you want to modify your segmentations?\nIf you press Continue, you will only be able to edit them at the end of the case.")
-                msgBox.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
-                msgBox.button(qt.QMessageBox.Ok).setText("Continue")
-                msgBox.button(qt.QMessageBox.Cancel).setText("Edit answers")
-                ret = msgBox.exec_()
-
-                if ret == qt.QMessageBox.Ok:
-                    self.showBreastAssessment("left")
-            elif viewTag == "LCC":
-                self.promptSegmentation("LMLO", "left")
-            elif viewTag == "LMLO":
-                pass
-                # self.caseReview()
+            self.promptRMLOSegmentation()
         else:
-            self.runNextSegmentationTask(viewTag, side)
-    
-    def promptSegmentation(self, viewTag: str, side: str):
+            self.runNextSegmentationTask(viewTag)
+
+    def promptRMLOSegmentation(self):
         msgBox = qt.QMessageBox(slicer.util.mainWindow())
-        laterality = "R" if side == "right" else "L"
-        msgBox.setWindowTitle(f"Continue to {laterality}-MLO?")
+        msgBox.setWindowTitle("Continue to R-MLO?")
         msgBox.setText("Do you want to modify the segmentations?\nIf you press Continue, you will only be able to edit them at the end of the case.")
         msgBox.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
         msgBox.button(qt.QMessageBox.Ok).setText("Continue")
@@ -702,21 +642,14 @@ class ReaderStudyController:
         ret = msgBox.exec_()
 
         if ret == qt.QMessageBox.Ok:
-            if viewTag == "RCC":
-                self.runCCSegmentation(side)
-            elif "MLO" in viewTag:
-                self.runMLOSegmentation(side)
+            self.runRMLOSegmentation()
     
-    def toggleMassSubmenus(self, side: str):
-        sideCapital = side.capitalize()
-        massYes = getattr(self.ui, f"mass{sideCapital}Yes")
-        massShapeGroup = getattr(self.ui, f"{side}MassShapeGroup")
-        massMarginGroup = getattr(self.ui, f"{side}MassMarginGroup")
-        massDensityGroup = getattr(self.ui, f"{side}MassDensityGroup")
-        massFeaturesGroup = getattr(self.ui, f"{side}MassFeaturesGroup")
-
-        for grp in [massShapeGroup, massMarginGroup, massDensityGroup, massFeaturesGroup]:
-            grp.setVisible(massYes.isChecked())
+    def toggleMassSubmenus(self):
+        is_yes = self.ui.massRightYes.isChecked()
+        self.ui.rightMassShapeGroup.setVisible(is_yes)
+        self.ui.rightMassMarginGroup.setVisible(is_yes)
+        self.ui.rightMassDensityGroup.setVisible(is_yes)
+        self.ui.rightMassFeaturesGroup.setVisible(is_yes)
             
     def launchSegmentEditor(self, viewTag, initialSegmentName=None):
         self.ensureCustomLayoutAvailable()
@@ -753,68 +686,47 @@ class ReaderStudyController:
         if initialSegmentName:
             segmentID = segmentationNode.GetSegmentation().AddEmptySegment(initialSegmentName)
             self.segmentEditorWidget.setCurrentSegmentID(segmentID)
-        
-        comboBoxes = self.segmentEditorWidget.findChildren(qt.QComboBox)
-        if len(comboBoxes) >= 2:
-            comboBoxes[0].setEnabled(False)
-            comboBoxes[1].setEnabled(False)
-            print(comboBoxes[0].currentText)
     
-    def updateAssociatedFeatureSelections(self, side: str):
-        noneCheckBox = getattr(self.ui, f"{side}FeatureNone")
-        featuresGroup = getattr(self.ui, f"{side}MassFeaturesGroup")
-
-        if noneCheckBox.isChecked():
-            for cb in featuresGroup.findChildren(qt.QCheckBox):
-                if cb != noneCheckBox and cb.isChecked():
+    def updateAssociatedFeatureSelections(self):
+        if self.ui.rightFeatureNone.isChecked():
+            for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
+                if cb != self.ui.rightFeatureNone and cb.isChecked():
                     cb.blockSignals(True)
                     cb.setChecked(False)
                     cb.blockSignals(False)
-    
-    def ensureNoneNotChecked(self, side: str):
-        noneCheckBox = getattr(self.ui, f"{side}FeatureNone")
-        featuresGroup = getattr(self.ui, f"{side}MassFeaturesGroup")
 
-        if any(cb.isChecked() for cb in featuresGroup.findChildren(qt.QCheckBox) if cb != noneCheckBox):
-            noneCheckBox.blockSignals(True)
-            noneCheckBox.setChecked(False)
-            noneCheckBox.blockSignals(False)        
-    
-    def updateArchDistortionAvailability(self, side: str):
-        sideCapital = side.capitalize()
-        massYes = getattr(self.ui, f"mass{sideCapital}Yes")
-        archDistortionYes = getattr(self.ui, f"{side}ArchitecturalDistortionYes")
-        archDistortionNo = getattr(self.ui, f"{side}ArchitecturalDistortionNo")
-        archDistortionNA = getattr(self.ui, f"{side}ArchitecturalDistortionNA") 
-        if massYes.isChecked():
-            archDistortionYes.setChecked(False)
-            archDistortionNo.setChecked(False)
-            archDistortionNA.setEnabled(True)
-            archDistortionYes.setEnabled(False)
-            archDistortionNo.setEnabled(False)
-            archDistortionNA.setChecked(True)
+    def ensureNoneNotChecked(self):
+        if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.rightFeatureNone):
+            self.ui.rightFeatureNone.blockSignals(True)
+            self.ui.rightFeatureNone.setChecked(False)
+            self.ui.rightFeatureNone.blockSignals(False)
+
+    def updateArchDistortionAvailability(self):
+        if self.ui.massRightYes.isChecked():
+            self.ui.rightArchitecturalDistortionYes.setChecked(False)
+            self.ui.rightArchitecturalDistortionNo.setChecked(False)
+            self.ui.rightArchitecturalDistortionNA.setEnabled(True)
+            self.ui.rightArchitecturalDistortionYes.setEnabled(False)
+            self.ui.rightArchitecturalDistortionNo.setEnabled(False)
+            self.ui.rightArchitecturalDistortionNA.setChecked(True)
         else:
-            for btn in [archDistortionYes, archDistortionNo, archDistortionNA]:
-                btn.setAutoExclusive(False)
-                btn.setChecked(False)
-                btn.setAutoExclusive(True)
+            self.ui.rightArchitecturalDistortionNA.setChecked(False)
+            self.ui.rightArchitecturalDistortionNA.setEnabled(False)
+            self.ui.rightArchitecturalDistortionYes.setEnabled(True)
+            self.ui.rightArchitecturalDistortionNo.setEnabled(True)
 
-            archDistortionNA.setEnabled(False)
-            archDistortionYes.setEnabled(True)
-            archDistortionNo.setEnabled(True)            
-
-    def toggleCalcificationSubmenus(self, side: str, show: bool=True):
-        getattr(self.ui, f"{side}CalcificationsMorphologyGroup").setVisible(show)
-        getattr(self.ui, f"{side}CalcificationsDistributionGroup").setVisible(show)
+    def toggleCalcificationSubmenus(self, show=True):
+        self.ui.rightCalcificationsMorphologyGroup.setVisible(show)
+        self.ui.rightCalcificationsDistributionGroup.setVisible(show)
         if not show:
-            getattr(self.ui, f"{side}MorphologySuspicious").setChecked(False)
-            self.toggleSuspiciousMorphologySubgroup(side=side, show=False)
-    
-    def toggleSuspiciousMorphologySubgroup(self, side: str, show: bool=True):
-        getattr(self.ui, f"{side}SuspiciousMorphologySubGroup").setVisible(show)
-    
-    def toggleAsymmetrySubtypes(self, side: str, show: bool=True):
-        getattr(self.ui, f"{side}AsymmetrySubtypeGroup").setVisible(show)
+            self.ui.morphologySuspicious.setChecked(False)
+            self.toggleSuspiciousMorphologySubgroup(False)
+
+    def toggleSuspiciousMorphologySubgroup(self, show=True):
+        self.ui.rightSuspiciousMorphologySubGroup.setVisible(show)
+
+    def toggleAsymmetrySubtypes(self, show=True):
+        self.ui.rightAsymmetrySubtypeGroup.setVisible(show)
 
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
@@ -886,17 +798,17 @@ class ReaderStudyController:
             segmentArray = slicer.util.arrayFromSegmentBinaryLabelmap(segmentationNode, segmentID, referenceVolumeNode)
             return not np.any(segmentArray)
         except Exception as e:
+            print(f"Error checking segment '{segmentID}': {e}")
             return True
     
-    def getSelectedFeatures(self, viewTag: str, side: str):
+    def getSelectedFeatures(self, viewTag):
         features = []
-        massFeaturesGroup = getattr(self.ui, f"{side}MassFeaturesGroup")
-        if "CC" in viewTag:
-            for checkbox in massFeaturesGroup.findChildren(qt.QCheckBox):
+        if viewTag=="RCC":
+            for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
                 if checkbox.isChecked() and checkbox.text != "None of the above" and checkbox.text != "Axillary adenopathy":
                     features.append(checkbox.text)
-        elif "MLO" in viewTag:
-            for checkbox in massFeaturesGroup.findChildren(qt.QCheckBox):
+        elif viewTag=="RMLO":
+            for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
                 if checkbox.isChecked() and checkbox.text != "None of the above":
                     features.append(checkbox.text) 
         return features
@@ -954,14 +866,177 @@ class ReaderStudyController:
             if button.isChecked():
                 return button.text
         return None
-    
-    def setNextButtonCallback(self, callback):
-        try:
-            self.ui.nextQuestionButton.clicked.disconnect()
-        except TypeError:
-            pass
-        self.ui.nextQuestionButton.clicked.connect(callback)
+        
+    # def showTemporaryInstruction(self, message):
+    #     if hasattr(self, "temporaryInstructionDialog"):
+    #         self.temporaryInstructionDialog.close()
 
+    #     dlg = qt.QDialog(slicer.util.mainWindow())
+    #     dlg.setWindowFlags(qt.Qt.FramelessWindowHint | qt.Qt.Dialog)
+    #     dlg.setModal(False)
+    #     # dlg.setAttribute(qt.Qt.WA_TranslucentBackground)
+    #     dlg.setStyleSheet("""
+    #         QDialog {
+    #             background-color: #f0f0f0;
+    #             border: 1px solid gray;
+    #             border-radius: 10px;
+    #         }
+    #         QLabel#titleLabel {
+    #             font-weight: bold;
+    #             font-size: 15pt;
+    #             qproperty-alignment: AlignCenter;
+    #         }
+    #         QLabel#messageLabel {
+    #             font-weight: bold:
+    #             font-size: 15pt;
+    #             qproperty-alignment: AlignCenter;
+    #         }
+    #         QFrame#line {
+    #             background-color: gray;
+    #             max-height: 1px;
+    #             min-height: 1px;
+    #         }
+    #     """)
+
+    #     layout = qt.QVBoxLayout()
+    #     dlg.setLayout(layout)
+
+    #     titleLabel = qt.QLabel("Segmentation Instruction")
+    #     titleLabel.setObjectName("titleLabel")
+    #     layout.addWidget(titleLabel)
+
+    #     line = qt.QFrame()
+    #     line.setFrameShape(qt.QFrame.HLine)
+    #     line.setObjectName("line")
+    #     layout.addWidget(line)
+
+    #     messageLabel = qt.QLabel(message)
+    #     messageLabel.setObjectName("messageLabel")
+    #     layout.addWidget(messageLabel)
+
+    #     dlg.adjustSize()
+    # # Position in the center of the main window (no decorations)
+    #     mainWindow = slicer.util.mainWindow()
+    #     mainRect = mainWindow.geometry
+
+    #     centerX = mainRect.left() + mainRect.width() // 2
+    #     centerY = mainRect.top() + mainRect.height() // 2
+
+    #     dlg.move(
+    #         centerX - dlg.width // 2,
+    #         centerY - dlg.height // 2
+    #     )
+
+    #     self.temporaryInstructionDialog = dlg
+    #     dlg.show()
+
+    #     # Auto-close on any click in the main window
+    #     class ClickFilter(qt.QObject):
+    #         def eventFilter(filterSelf, obj, event):
+    #             if event.type() == qt.QEvent.MouseButtonPress:
+    #                 dlg.close()
+    #                 slicer.util.mainWindow().removeEventFilter(filterSelf)
+    #             return False
+
+    #     self.clickFilter = ClickFilter()
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
+    # def showTemporaryInstruction(self, text):
+    #     if hasattr(self, "temporaryInstructionDialog") and self.temporaryInstructionDialog:
+    #         self.temporaryInstructionDialog.close()
+
+    #     self.temporaryInstructionDialog = qt.QDialog(slicer.util.mainWindow())
+    #     self.temporaryInstructionDialog.setWindowFlags(
+    #         qt.Qt.FramelessWindowHint | qt.Qt.Dialog)
+    #     self.temporaryInstructionDialog.setAttribute(qt.Qt.WA_TranslucentBackground)
+    #     self.temporaryInstructionDialog.setModal(False)
+
+    #     mainLayout = qt.QVBoxLayout(self.temporaryInstructionDialog)
+    #     mainLayout.setContentsMargins(0, 0, 0, 0)
+
+    #     frame = qt.QFrame()
+    #     frame.setFrameShape(qt.QFrame.Box)
+    #     frame.setStyleSheet("""
+    #         QFrame {
+    #             background-color: #f0f0f0;
+    #             border: 1px solid gray;
+    #             border-radius: 10px;
+    #         }
+    #     """)
+    #     layout = qt.QVBoxLayout(frame)
+    #     layout.setContentsMargins(20, 20, 20, 20)
+    #     layout.setSpacing(15)
+
+    #     # Title label
+    #     titleLabel = qt.QLabel("Segmentation Instruction")
+    #     titleLabel.setStyleSheet("font-weight: bold; font-size: 16pt;")
+    #     layout.addWidget(titleLabel)
+
+    #     # Body text
+    #     textLabel = qt.QLabel(text)
+    #     textLabel.setStyleSheet("font-size: 12pt;")
+    #     textLabel.setWordWrap(True)
+    #     layout.addWidget(textLabel)
+
+    #     mainLayout.addWidget(frame)
+
+    #     # Size and position
+    #     self.temporaryInstructionDialog.setMinimumWidth(500)
+    #     self.temporaryInstructionDialog.setMinimumHeight(180)
+
+    #     # Get main window geometry
+    #     mainWindow = slicer.util.mainWindow()
+    #     mainRect = mainWindow.geometry  # NOT .frameGeometry, to avoid decorations
+
+    #     # Compute center
+    #     centerX = mainRect.left() + mainRect.width() // 2
+    #     centerY = mainRect.top() + mainRect.height() // 2
+
+    #     # Move dialog
+    #     self.temporaryInstructionDialog.move(
+    #         centerX - self.temporaryInstructionDialog.width // 2,
+    #         centerY - self.temporaryInstructionDialog.height // 2
+    #     )
+
+    #     class ClickFilter(qt.QObject):
+    #         def __init__(self, dialog):
+    #             super().__init__()
+    #             self.dialog = dialog
+
+    #         def eventFilter(self, obj, event):
+    #             if event.type() in [qt.QEvent.MouseButtonPress, qt.QEvent.KeyPress]:
+    #                 self.dialog.close()
+    #                 slicer.util.mainWindow().removeEventFilter(self)
+    #             return False
+
+    #     self.clickFilter = ClickFilter(self.temporaryInstructionDialog)
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+    #     self.temporaryInstructionDialog.show()
+
+
+    # def showTemporaryInstruction(self, message):
+    #     if hasattr(self, "temporaryInstructionFrame"):
+    #         self.temporaryInstructionFrame.close()
+
+    #     self.temporaryInstructionFrame = TemporaryInstructionFrame(message, slicer.util.mainWindow())
+    #     self.temporaryInstructionFrame.adjustSize()
+
+    #     # Center in main window
+    #     mw = slicer.util.mainWindow().geometry
+    #     fw = self.temporaryInstructionFrame.frameGeometry
+    #     x = mw.center().x() - fw.width() // 2
+    #     y = mw.center().y() - fw.height() // 2
+    #     self.temporaryInstructionFrame.move(x, y)
+    #     self.temporaryInstructionFrame.show()
+
+    #     # Install dismiss-on-click filter
+    #     self.clickFilter = ClickFilter(self.temporaryInstructionFrame)
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
+    
     def showTemporaryInstruction(self, text):
         if hasattr(self, 'temporaryWarningFrame') and self.temporaryInstructionFrame:
             self.temporaryInstructionFrame.deleteLater()
@@ -998,6 +1073,16 @@ class ReaderStudyController:
         layout.addWidget(iconLabel)
         layout.addWidget(textLabel)
 
+        # self.temporaryInstructionFrame.adjustSize()
+        # self.temporaryInstructionFrame.setMinimumWidth(500)
+        # self.temporaryInstructionFrame.setMinimumHeight(180)
+
+        # Center it over the Slicer window
+        # mw = parent.geometry
+        # fw = self.temporaryInstructionFrame.frameGeometry()
+        # x = mw().center().x() - fw.width() // 2
+        # y = mw().center().y() - fw.height() // 2
+        # self.temporaryInstructionFrame.move(x, y)
         mw = parent.geometry
         fw = self.temporaryInstructionFrame.frameGeometry
         x = mw.center().x() - fw.width() // 2
@@ -1023,6 +1108,46 @@ class ReaderStudyController:
 
         self.clickFilter = ClickFilter(self.temporaryInstructionFrame)
         slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
+
+    # def showTemporaryInstruction(self, text):
+    #     if hasattr(self, 'temporaryOverlayLabel') and self.temporaryOverlayLabel:
+    #         self.temporaryOverlayLabel.deleteLater()
+
+    #     self.temporaryOverlayLabel = qt.QLabel(slicer.util.mainWindow())
+    #     self.temporaryOverlayLabel.setText(text)
+    #     self.temporaryOverlayLabel.setStyleSheet("""
+    #         QLabel {
+    #             background-color: rgba(50, 50, 50, 220);
+    #             color: white;
+    #             padding: 10px;
+    #             border-radius: 8px;
+    #             font-size: 14pt;
+    #         }
+    #     """)
+    #     self.temporaryOverlayLabel.setWindowFlags(qt.Qt.ToolTip)
+    #     self.temporaryOverlayLabel.adjustSize()
+
+    #     cursorPos = qt.QCursor.pos()
+    #     self.temporaryOverlayLabel.move(cursorPos + qt.QPoint(20, 20))
+    #     self.temporaryOverlayLabel.show()
+
+    #     class ClickFilter(qt.QObject):
+    #         def __init__(self, parent, label):
+    #             super(ClickFilter, self).__init__(parent)
+    #             self.label = label
+
+    #         def eventFilter(self, obj, event):
+    #             if event.type() == qt.QEvent.MouseButtonPress:
+    #                 self.label.hide()
+    #                 self.label.deleteLater()
+    #                 slicer.util.mainWindow().removeEventFilter(self)
+    #                 return True
+    #             return False
+
+    #     self.clickFilter = ClickFilter(slicer.util.mainWindow(), self.temporaryOverlayLabel)
+    #     slicer.util.mainWindow().installEventFilter(self.clickFilter)
+
 
     def setupLayout(self, volume_map):
         self.ensureCustomLayoutAvailable()
