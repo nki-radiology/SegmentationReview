@@ -139,20 +139,20 @@ class ReaderStudyController:
 
         slicer.util.setDataProbeVisible(False)
 
-        self.ui.featureNone.toggled.connect(self.updateAssociatedFeatureSelections)
+        self.ui.rightFeatureNone.toggled.connect(self.updateAssociatedFeatureSelections)
         for checkbox in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
-            if checkbox != self.ui.featureNone:
+            if checkbox != self.ui.rightFeatureNone:
                 checkbox.toggled.connect(self.ensureNoneNotChecked)
 
-        self.ui.calcificationsYes.toggled.connect(self.toggleCalcificationSubmenus)
-        self.ui.calcificationsNo.toggled.connect(lambda: self.toggleCalcificationSubmenus(False))
+        self.ui.rightCalcificationsYes.toggled.connect(self.toggleCalcificationSubmenus)
+        self.ui.rightCalcificationsNo.toggled.connect(lambda: self.toggleCalcificationSubmenus(False))
 
         self.ui.morphologySuspicious.toggled.connect(self.toggleSuspiciousMorphologySubgroup)
 
-        self.ui.asymmetryYes.toggled.connect(self.toggleAsymmetrySubtypes)
-        self.ui.asymmetryNo.toggled.connect(lambda: self.toggleAsymmetrySubtypes(False))
+        self.ui.rightAsymmetryYes.toggled.connect(self.toggleAsymmetrySubtypes)
+        self.ui.rightAsymmetryNo.toggled.connect(lambda: self.toggleAsymmetrySubtypes(False))
         
-        self.ui.architecturalDistortionNA.setEnabled(False)
+        self.ui.rightArchitecturalDistortionNA.setEnabled(False)
         self.ui.massRightYes.toggled.connect(self.updateArchDistortionAvailability)
         self.ui.massRightNo.toggled.connect(self.updateArchDistortionAvailability)
         
@@ -175,13 +175,25 @@ class ReaderStudyController:
         self.ui.rightMassMarginGroup.hide()
         self.ui.rightMassDensityGroup.hide()
         self.ui.rightMassFeaturesGroup.hide()
-        self.ui.asymmetryGroup.hide()
-        self.ui.asymmetrySubtypeGroup.hide()
+        self.ui.rightAsymmetryGroup.hide()
+        self.ui.rightAsymmetrySubtypeGroup.hide()
         self.ui.archDistortionGroup.hide()
-        self.ui.calcificationsGroup.hide()
-        self.ui.calcificationsMorphologyGroup.hide()
-        self.ui.suspiciousMorphologySubGroup.hide()
-        self.ui.calcificationsDistributionGroup.hide()
+        self.ui.rightCalcificationsGroup.hide()
+        self.ui.rightCalcificationsMorphologyGroup.hide()
+        self.ui.rightSuspiciousMorphologySubGroup.hide()
+        self.ui.rightCalcificationsDistributionGroup.hide()
+        self.ui.leftAssessmentLabel.hide()
+        self.ui.leftMassGroup.hide()
+        self.ui.leftMassShapeGroup.hide()
+        self.ui.leftMassMarginGroup.hide()
+        self.ui.leftMassDensityGroup.hide()
+        self.ui.leftMassFeaturesGroup.hide()
+        self.ui.leftAsymmetryGroup.hide()
+        self.ui.leftAsymmetrySubtypeGroup.hide()
+        self.ui.leftArchDistortionGroup.hide()
+        self.ui.leftCalcificationsGroup.hide()
+        self.ui.leftCalcificationsMorphologyGroup.hide()
+        self.ui.leftSuspiciousMorphologySubGroup.hide()
         self.segmentEditorWidget.hide()
 
     def showBiradsSection(self):
@@ -248,9 +260,9 @@ class ReaderStudyController:
         self.ui.densityLeftGroup.hide()
         self.ui.rightAssessmentLabel.show()
         self.ui.rightMassGroup.show()
-        self.ui.asymmetryGroup.show()
+        self.ui.rightAsymmetryGroup.show()
         self.ui.archDistortionGroup.show()
-        self.ui.calcificationsGroup.show()
+        self.ui.rightCalcificationsGroup.show()
 
         self.ui.nextQuestionButton.setText("Next Question")
         self.ui.nextQuestionButton.clicked.disconnect()
@@ -284,30 +296,30 @@ class ReaderStudyController:
 
             # Validate associated features
             features = [
-                self.ui.featureSkinRetraction, self.ui.featureNippleRetraction,
-                self.ui.featureSkinThickening, self.ui.featureTrabecularThickening,
-                self.ui.featureAxillaryAdenopathy, self.ui.featureArchitecturalDistortion,
-                self.ui.featureCalcifications, self.ui.featureNone
+                self.ui.rightFeatureSkinRetraction, self.ui.rightFeatureNippleRetraction,
+                self.ui.rightFeatureSkinThickening, self.ui.rightFeatureTrabecularThickening,
+                self.ui.rightFeatureAxillaryAdenopathy, self.ui.rightFeatureArchitecturalDistortion,
+                self.ui.rightFeatureCalcifications, self.ui.rightFeatureNone
             ]
             selected = [cb for cb in features if cb.isChecked()]
             if not selected:
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select at least one associated feature.")
                 return
-            if self.ui.featureNone.isChecked() and len(selected) > 1:
+            if self.ui.rightFeatureNone.isChecked() and len(selected) > 1:
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Conflict", "'None of the above' cannot be selected with other options.")
                 return
 
         # --- ASYMMETRY CHECK ---
-        asymmetry = self.getSelectedButtonText(self.ui.asymmetryGroup)
+        asymmetry = self.getSelectedButtonText(self.ui.rightAsymmetryGroup)
         if not asymmetry:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the asymmetry question.")
             return
         if asymmetry.lower() == "yes":
             subtype_selected = any(
                 cb.isChecked() for cb in [
-                    self.ui.asymmetryFocal,
-                    self.ui.asymmetryGlobal,
-                    self.ui.asymmetryDeveloping
+                    self.ui.rightAsymmetryFocal,
+                    self.ui.rightAsymmetryGlobal,
+                    self.ui.rightAsymmetryDeveloping
                 ]
             )
             if not subtype_selected:
@@ -315,24 +327,24 @@ class ReaderStudyController:
                 return
 
         # --- ARCHITECTURAL DISTORTION CHECK ---
-        if not any(rb.isChecked() for rb in [self.ui.architecturalDistortionYes, self.ui.architecturalDistortionNo, self.ui.architecturalDistortionNA]):
+        if not any(rb.isChecked() for rb in [self.ui.rightArchitecturalDistortionYes, self.ui.rightArchitecturalDistortionNo, self.ui.rightArchitecturalDistortionNA]):
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the architectural distortion question.")
             return
 
         # --- CALCIFICATIONS CHECK ---
-        calcifications = self.getSelectedButtonText(self.ui.calcificationsGroup)
+        calcifications = self.getSelectedButtonText(self.ui.rightCalcificationsGroup)
         if not calcifications:
             qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please answer the calcifications question.")
             return
 
         if calcifications.lower() == "yes":
             # Morphology
-            if not self.getSelectedButtonText(self.ui.calcificationsMorphologyGroup):
+            if not self.getSelectedButtonText(self.ui.rightCalcificationsMorphologyGroup):
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a calcification morphology.")
                 return
 
             # Distribution
-            if not self.getSelectedButtonText(self.ui.calcificationsDistributionGroup):
+            if not self.getSelectedButtonText(self.ui.rightCalcificationsDistributionGroup):
                 qt.QMessageBox.warning(slicer.util.mainWindow(), "Incomplete", "Please select a calcification distribution.")
                 return
 
@@ -355,18 +367,18 @@ class ReaderStudyController:
             self.ui.rightMassMarginGroup.hide()
             self.ui.rightMassDensityGroup.hide()
             self.ui.rightMassFeaturesGroup.hide()
-            self.ui.asymmetryGroup.hide()
-            self.ui.asymmetrySubtypeGroup.hide()
+            self.ui.rightAsymmetryGroup.hide()
+            self.ui.rightAsymmetrySubtypeGroup.hide()
             self.ui.archDistortionGroup.hide()
-            self.ui.calcificationsGroup.hide()
-            self.ui.calcificationsMorphologyGroup.hide()
-            self.ui.suspiciousMorphologySubGroup.hide()
-            self.ui.calcificationsDistributionGroup.hide()
+            self.ui.rightCalcificationsGroup.hide()
+            self.ui.rightCalcificationsMorphologyGroup.hide()
+            self.ui.rightSuspiciousMorphologySubGroup.hide()
+            self.ui.rightCalcificationsDistributionGroup.hide()
 
 
             # Determine what to do based on the answers
-            if self.ui.massRightYes.isChecked() or self.ui.asymmetryYes.isChecked() or \
-            self.ui.calcificationsYes.isChecked() or self.ui.architecturalDistortionYes.isChecked():
+            if self.ui.massRightYes.isChecked() or self.ui.rightAsymmetryYes.isChecked() or \
+            self.ui.rightCalcificationsYes.isChecked() or self.ui.rightArchitecturalDistortionYes.isChecked():
                 self.runRCCSegmentation()
             else:
                 pass
@@ -378,30 +390,30 @@ class ReaderStudyController:
         if self.ui.massRightYes.isChecked():
             print(f"I'm before self.segmentationQueue.append(Mass), {viewTag}")
             self.segmentationQueue.append(lambda: self.segmentMass(viewTag))
-            if self.ui.asymmetryYes.isChecked():
+            if self.ui.rightAsymmetryYes.isChecked():
                 self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag))
-                if self.ui.calcificationsYes.isChecked():
+                if self.ui.rightCalcificationsYes.isChecked():
                     self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag))
             else:
-                if self.ui.calcificationsYes.isChecked():
+                if self.ui.rightCalcificationsYes.isChecked():
                    self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag))
         else:
-            if self.ui.asymmetryYes.isChecked():
+            if self.ui.rightAsymmetryYes.isChecked():
                 self.segmentationQueue.append(lambda: self.segmentAsymmetry(viewTag))
-                if self.ui.architecturalDistortionYes.isChecked():
+                if self.ui.rightArchitecturalDistortionYes.isChecked():
                     self.segmentationQueue.append(lambda: self.segmentDistortion(viewTag))
-                if self.ui.calcificationsYes.isChecked():
+                if self.ui.rightCalcificationsYes.isChecked():
                        self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
                 else:
-                   if self.ui.calcificationsYes.isChecked():
+                   if self.ui.rightCalcificationsYes.isChecked():
                        self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag))
             else:
-                if self.ui.architecturalDistortionYes.isChecked():
+                if self.ui.rightArchitecturalDistortionYes.isChecked():
                     self.segmentationQueue.append(lambda: self.segmentDistortion(viewTag))
-                if self.ui.calcificationsYes.isChecked():
+                if self.ui.rightCalcificationsYes.isChecked():
                        self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
                 else:
-                   if self.ui.calcificationsYes.isChecked():
+                   if self.ui.rightCalcificationsYes.isChecked():
                        self.segmentationQueue.append(lambda: self.segmentCalcifications(viewTag)) 
         self.runNextSegmentationTask(viewTag)
     
@@ -676,45 +688,45 @@ class ReaderStudyController:
             self.segmentEditorWidget.setCurrentSegmentID(segmentID)
     
     def updateAssociatedFeatureSelections(self):
-        if self.ui.featureNone.isChecked():
+        if self.ui.rightFeatureNone.isChecked():
             for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox):
-                if cb != self.ui.featureNone and cb.isChecked():
+                if cb != self.ui.rightFeatureNone and cb.isChecked():
                     cb.blockSignals(True)
                     cb.setChecked(False)
                     cb.blockSignals(False)
 
     def ensureNoneNotChecked(self):
-        if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.featureNone):
-            self.ui.featureNone.blockSignals(True)
-            self.ui.featureNone.setChecked(False)
-            self.ui.featureNone.blockSignals(False)
+        if any(cb.isChecked() for cb in self.ui.rightMassFeaturesGroup.findChildren(qt.QCheckBox) if cb != self.ui.rightFeatureNone):
+            self.ui.rightFeatureNone.blockSignals(True)
+            self.ui.rightFeatureNone.setChecked(False)
+            self.ui.rightFeatureNone.blockSignals(False)
 
     def updateArchDistortionAvailability(self):
         if self.ui.massRightYes.isChecked():
-            self.ui.architecturalDistortionYes.setChecked(False)
-            self.ui.architecturalDistortionNo.setChecked(False)
-            self.ui.architecturalDistortionNA.setEnabled(True)
-            self.ui.architecturalDistortionYes.setEnabled(False)
-            self.ui.architecturalDistortionNo.setEnabled(False)
-            self.ui.architecturalDistortionNA.setChecked(True)
+            self.ui.rightArchitecturalDistortionYes.setChecked(False)
+            self.ui.rightArchitecturalDistortionNo.setChecked(False)
+            self.ui.rightArchitecturalDistortionNA.setEnabled(True)
+            self.ui.rightArchitecturalDistortionYes.setEnabled(False)
+            self.ui.rightArchitecturalDistortionNo.setEnabled(False)
+            self.ui.rightArchitecturalDistortionNA.setChecked(True)
         else:
-            self.ui.architecturalDistortionNA.setChecked(False)
-            self.ui.architecturalDistortionNA.setEnabled(False)
-            self.ui.architecturalDistortionYes.setEnabled(True)
-            self.ui.architecturalDistortionNo.setEnabled(True)
+            self.ui.rightArchitecturalDistortionNA.setChecked(False)
+            self.ui.rightArchitecturalDistortionNA.setEnabled(False)
+            self.ui.rightArchitecturalDistortionYes.setEnabled(True)
+            self.ui.rightArchitecturalDistortionNo.setEnabled(True)
 
     def toggleCalcificationSubmenus(self, show=True):
-        self.ui.calcificationsMorphologyGroup.setVisible(show)
-        self.ui.calcificationsDistributionGroup.setVisible(show)
+        self.ui.rightCalcificationsMorphologyGroup.setVisible(show)
+        self.ui.rightCalcificationsDistributionGroup.setVisible(show)
         if not show:
             self.ui.morphologySuspicious.setChecked(False)
             self.toggleSuspiciousMorphologySubgroup(False)
 
     def toggleSuspiciousMorphologySubgroup(self, show=True):
-        self.ui.suspiciousMorphologySubGroup.setVisible(show)
+        self.ui.rightSuspiciousMorphologySubGroup.setVisible(show)
 
     def toggleAsymmetrySubtypes(self, show=True):
-        self.ui.asymmetrySubtypeGroup.setVisible(show)
+        self.ui.rightAsymmetrySubtypeGroup.setVisible(show)
 
     def startStudy(self):
         name = self.ui.readerNameInput.text.strip()
@@ -1037,14 +1049,15 @@ class ReaderStudyController:
         self.temporaryInstructionFrame.setFrameShadow(qt.QFrame.Raised)
         self.temporaryInstructionFrame.setStyleSheet("""
             QFrame {
-                background-color: #fefefe;
-                border: 2px solid #f1c40f;
+                background-color: #f0f0f0;
+                border: 2px solid gray;
                 border-radius: 10px;
             }
             QLabel {
+                font-weight: bold;
                 color: black;
                 padding: 10px;
-                font-size: 13pt;
+                font-size: 15pt;
             }
         """)
 
@@ -1060,7 +1073,9 @@ class ReaderStudyController:
         layout.addWidget(iconLabel)
         layout.addWidget(textLabel)
 
-        self.temporaryInstructionFrame.adjustSize()
+        # self.temporaryInstructionFrame.adjustSize()
+        # self.temporaryInstructionFrame.setMinimumWidth(500)
+        # self.temporaryInstructionFrame.setMinimumHeight(180)
 
         # Center it over the Slicer window
         # mw = parent.geometry
