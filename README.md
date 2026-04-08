@@ -2,12 +2,17 @@
 
 This repository is a tutorial created for people who want to understand the basics of Git and Github. In this repository we will go over the basics for the Git terminal, the Git GUI and IDE intergrated funcionality. In this repository we have markdown files explaining and you can use this repository to try around how things work. Don't worry about accentally changing stuff in this repository! 
 
+Also: LLM's like ChatGPT and Claude.ai are encouraged to use! They will tell you mutch more in detail how Git works, this only acts as a way of showing you what Git and Github can do for you in terms of:
+- Keeping track on what you have done (History) -> No more version 1, 2, FIN and FIN_FIN
+- Working together with other people to make the project better -> implementing new features, debugging and correcting errors
+- Keeping it nice and organized -> Everybody reading it can understand what you've done and how to implement it
+
 ## First steps
 
 in [`docs`](./docs) we have different types of tutorials, each for there respective usages. Start with [`docs/README.md`](./docks/README.md) and follow the first instructions on how to get this repository on your local PC.
 
-Below here you see the original README.md showcasing all the in's and out's of the repository.  
 
+Below here you see the original README.md showcasing all the in's and out's of the repository and what it's purpose is.
 
 # SegmentationReview
 

@@ -1,87 +1,116 @@
 # Git & GitHub Tutorial — Overview
 
-> **Audience:** Technical colleagues at NKI Radiology who know Python but are new to structured Git workflows.
-> **Codebase we use:** [`SegmentationReview/SegmentationReview.py`](../SegmentationReview/SegmentationReview.py) — the real extension you may already use clinically.
+---
+
+## 1. What are Git and GitHub?
+
+Before installing anything, it's important to understand **what we're actually using**:
+
+* **Git** → a version control system
+
+  * Tracks changes in your code over time
+  * Lets you go back to previous versions
+  * Works locally on your computer
+
+* **GitHub** → a platform built around Git
+
+  * Stores your code online (a “remote”)
+  * Lets you collaborate with others
+  * Adds tools like Pull Requests and code review
+
+👉 In simple terms:
+
+* Git = the engine
+* GitHub = the collaboration platform
 
 ---
 
-## Modules
+## 2. Installing the tools
 
-| # | Topic | File |
-|---|---|---|
-| 0 | **Overview** (this page) | `00_overview.md` |
-| 1 | **Core concepts** — repo, commit, staging area | `01_core_concepts.md` |
-| 2 | **Branches** — create, switch, merge | `02_branches.md` |
-| 3 | **Remote workflow** — clone, fetch, pull, push | `03_remote_workflow.md` |
-| 4 | **Commit conventions** — Conventional Commits + LLMs | `04_commit_conventions.md` |
-| 5 | **Pull Requests** — open, review, merge | `05_pull_requests.md` |
-| 6 | **Rebase** — interactive rebase, squash, conflict | `06_rebase.md` |
-| 7 | **CI / GitHub Actions** — automated checks on PRs | `07_ci_github_actions.md` |
-| 8 | **Exercises** — hands-on A–E | `08_exercises.md` |
+First, install Git:
 
-Also see [`AGENT_GUIDE.md`](../AGENT_GUIDE.md) at the root for how to use LLMs effectively throughout this workflow.
+* Download here: [https://git-scm.com/install](https://git-scm.com/install)
+
+Git works via a **terminal** (Command Prompt / PowerShell on Windows).
+
+If you are not comfortable with terminals, you can use a graphical interface (GUI):
+
+* GUI clients: [https://git-scm.com/tools/guis](https://git-scm.com/tools/guis)
+
+👉 **Recommended for this tutorial:**
+
+* **GitHub Desktop** (easy to use, we will reference it in examples)
 
 ---
 
-## How to follow along
+## 3. What is a repository?
+
+A **repository (repo)** is simply:
+
+> A folder that contains your code **plus its full history**
+
+It tracks:
+
+* All changes ever made
+* Who made them
+* When they were made
+
+You can have:
+
+* A **local repo** → on your computer
+* A **remote repo** → on GitHub
+
+---
+
+## 4. Getting the tutorial code (clone)
+
+To start working, you need a copy of the repository on your computer. This is called **cloning**.
+
+On the GitHub page:
+
+* Click the green `<> Code` button
+* Copy the repository URL
+
+### Option A — Using terminal
 
 ```bash
-# Fork this repo on GitHub, then clone your fork
-git clone https://github.com/<your-username>/SegmentationReview.git
-cd SegmentationReview
-
-# Set the original as "upstream" to pull instructor updates
-git remote add upstream https://github.com/NKIRadiology/SegmentationReview.git
-git remote -v
+git clone https://github.com/nki-radiology/TutorialGithubNKIRadiology.git
+cd TutorialGithubNKIRadiology
+git status
 ```
 
-All exercises modify `SegmentationReview/SegmentationReview.py`. You will not break anything — changes stay on your own branch until you open a PR.
+### Option B — Using GitHub Desktop (recommended)
+
+* Click **File → Clone repository**
+* Paste the repository URL
+* Choose a location on your computer
+
+<p align="center">
+  <img width="45%" src="../pics/GUI_clone_repository.png" alt="Clone repo">
+  <img width="45%" src="../pics/GUI_clone_repository_using_URL.png" alt="Open repo">
+</p>
 
 ---
 
-## Workshop agenda (75 min)
+## 5. What you will learn
 
-| Time | Activity |
-|---|---|
-| 0–10 min | Why Git matters for research software |
-| 10–20 min | Core concepts + mental model walkthrough |
-| 20–35 min | Exercise A — first feature branch + commit |
-| 35–50 min | Exercise B/C — second commit + code review |
-| 50–65 min | Exercise D — rebase and conflict resolution |
-| 65–75 min | Exercise E — post-merge hygiene + LLM reflection |
+This tutorial is structured into modules:
 
----
-
-## Mental model
-
-```
-Working directory  ──git add──►  Staging area  ──git commit──►  Local repo  ──git push──►  Remote (GitHub)
-                  ◄──git restore──             ◄──git reset──               ◄──git fetch/pull──
-```
-
-Keep this in mind throughout all modules.
+| # | Topic                                          | File                       |
+| - | ---------------------------------------------- | -------------------------- |
+| 0 | **Overview** (this page)                       | `00_overview.md`           |
+| 1 | **Core concepts** — repo, commit, staging area | `01_core_concepts.md`      |
+| 2 | **Branches** — create, switch, merge           | `02_branches.md`           |
+| 3 | **Remote workflow** — clone, fetch, pull, push | `03_remote_workflow.md`    |
+| 4 | **Commit conventions** — writing clear commits | `04_commit_conventions.md` |
+| 5 | **Pull Requests** — collaboration workflow     | `05_pull_requests.md`      |
+| 6 | **Rebase** — clean history & conflict handling | `06_rebase.md`             |
+| 7 | **CI / GitHub Actions** — automated checks     | `07_ci_github_actions.md`  |
+| 8 | **Exercises** — hands-on practice              | `08_exercises.md`          |
 
 ---
 
-## Branch strategy used in this repo
+## Next step
 
-```
-main (protected — never push directly)
- └── develop  (integration branch)
-      ├── feature/<topic>
-      ├── fix/<topic>
-      ├── docs/<topic>
-      └── chore/<topic>
-```
-
----
-
-## Recommended tools
-
-| Tool | Why |
-|---|---|
-| [VS Code + GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) | Visual diff, blame, history |
-| [GitHub CLI (`gh`)](https://cli.github.com/) | Manage PRs from the terminal |
-| [lazygit](https://github.com/jesseduffield/lazygit) | Terminal UI for interactive rebase |
-
-Start with module 1 → [01_core_concepts.md](01_core_concepts.md)
+Continue to:
+👉 **[01_core_concepts.md](01_core_concepts.md)**
