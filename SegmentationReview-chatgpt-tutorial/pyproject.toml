@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "segmentation-review"
+version = "0.1.0"
+description = "3D Slicer extension for structured segmentation review"
+requires-python = ">=3.9"
+authors = [{ name = "Your Department" }]
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = ["E501"]  # line length handled by black
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+ignore_missing_imports = true   # Slicer stubs not available
