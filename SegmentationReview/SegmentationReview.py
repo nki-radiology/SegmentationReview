@@ -92,6 +92,9 @@ class SegmentationReviewWidget(ScriptedLoadableModuleWidget, VTKObservationMixin
         self.window_level = None   # To store current window/level settings
         self.segment_visiblity_states = {}  # Dictionary to store the visibility toggle of each segment
 
+        # NOTE: We remove some code over here
+        self.some_variable = self.some_initial_method()
+
 
 
     def setup(self):
@@ -224,6 +227,16 @@ class SegmentationReviewWidget(ScriptedLoadableModuleWidget, VTKObservationMixin
                 self.segmentEditorWidget.setSourceVolumeNodeID(self.sourceVolumeNodeID)
         self.initializeParameterNode()
     
+    # And remove also over here
+    def some_initial_method(self):
+        """
+        Just some method we call uppon when we initialize the class. In the case of Slicer this is the extension itself. 
+        We can do whatever we want with it.
+        """
+
+        # Just returning value 10
+        return 10 
+
     def overwrite_mask_clicked(self):
         # overwrite self.segmentEditorWidget.segmentationNode()
         self.segmentation_node = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode')
