@@ -11,31 +11,8 @@ Topics covered: cloning, branching, commits, push/pull, rebase, conflict resolut
 ## Repository Structure
 
 - `SegmentationReview/` — the original 3D Slicer extension (Python, CMakeLists). The real implementation participants will touch.
-- `SegmentationReview-chatgpt-tutorial/` — ChatGPT-generated tutorial draft. Contains the most complete reference structure: `src/`, `docs/tutorial/`, `.github/` (CI workflows, PR template, issue templates), `scripts/check.sh`, `pyproject.toml`, `commitlint.config.js`, `CONTRIBUTING.md`, `CHANGELOG.md`.
-- `SegmentationReview-claude-tutorial/` — Claude-generated tutorial draft. Contains `docs/` (workshop plan, exercise scripts, capabilities map, LLM hygiene guide) and `src/`.
+- `docs/` — tutorial based md files for the user to go through to get a basic grasph on how to use Git
 
-Both tutorial drafts are **references** for building out the main repo. Features, exercises, and structural decisions should draw from both.
-
-## Development Commands
-
-These are set up in `SegmentationReview-chatgpt-tutorial/` and should be replicated in the main repo:
-
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run all checks at once (format, lint, type, tests, commitlint)
-./scripts/check.sh
-
-# Individual checks
-black --check src/
-ruff check src/
-mypy src/segmentation_review/
-pytest --cov=segmentation_review --cov-report=term-missing --cov-fail-under=80
-
-# Single test file
-pytest src/tests/test_loader.py -v
-```
 
 ## Commit Conventions
 
