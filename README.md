@@ -1,3 +1,14 @@
+# Basic tutorial for NKI Radiology workers
+
+This repository is a tutorial created for people who want to understand the basics of Git and Github. In this repository we will go over the basics for the Git terminal, the Git GUI and IDE intergrated funcionality. In this repository we have markdown files explaining and you can use this repository to try around how things work. Don't worry about accentally changing stuff in this repository! 
+
+## First steps
+
+in [`docs`](./docs) we have different types of tutorials, each for there respective usages. Start with [`docs/README.md`](./docks/README.md) and follow the first instructions on how to get this repository on your local PC.
+
+Below here you see the original README.md showcasing all the in's and out's of the repository.  
+
+
 # SegmentationReview
 
 The SegmentationReview extension is a powerful tool for clinicians who need to quickly and efficiently review deep-learning generated segmentations. With this extension, you can use a Likert-type rating system that scores segmentations on a four-point scale, ranging from "Acceptable with no changes" to "Unacceptable, not visible/wrong location".
