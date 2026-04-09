@@ -20,6 +20,7 @@ include(${Slicer_USE_FILE})
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(SegmentationReview)
+add_subdirectory(Test)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
