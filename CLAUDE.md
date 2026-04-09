@@ -11,7 +11,54 @@ Topics covered: cloning, branching, commits, push/pull, rebase, conflict resolut
 ## Repository Structure
 
 - `SegmentationReview/` — the original 3D Slicer extension (Python, CMakeLists). The real implementation participants will touch.
-- `docs/` — tutorial based md files for the user to go through to get a basic grasph on how to use Git
+- `docs/` — tutorial based md files for the user to go through to get a basic grasp on how to use Git
+
+## 3D Slicer Extension Structure
+
+This repo contains a **scripted (Python-only) 3D Slicer extension** named `SegmentationReview`. Understanding the two-level CMake layout is important when debugging loading issues.
+
+### CMake layout
+
+```
+TutorialGithubNKIRadiology/          ← extension root (folder name must match project())
+  CMakeLists.txt                     ← extension-level: sets EXTENSION_* metadata, calls add_subdirectory()
+  SegmentationReview/                ← module directory
+    CMakeLists.txt                   ← module-level: calls slicerMacroBuildScriptedModule()
+    SegmentationReview.py            ← the actual Python module
+    Resources/
+      Icons/SegmentationReview.png
+      UI/SegmentationReview.ui       ← Qt Designer UI file loaded at runtime via slicer.util.loadUI()
+    Testing/
+      CMakeLists.txt
+      Python/CMakeLists.txt
+```
+
+**Key constraint:** The root `CMakeLists.txt` `project()` name must match the folder name for the Extension Wizard to recognise the extension. This repo's folder is `TutorialGithubNKIRadiology`, so the root CMakeLists.txt uses `project(TutorialGithubNKIRadiology)`.
+
+### Python module class pattern (`ScriptedLoadableModule`)
+
+Every scripted Slicer module follows this four-class pattern in one `.py` file:
+
+| Class | Base class | Purpose |
+|---|---|---|
+| `SegmentationReview` | `ScriptedLoadableModule` | Module metadata (title, category, contributors). Instantiated at Slicer startup. |
+| `SegmentationReviewWidget` | `ScriptedLoadableModuleWidget` | Qt UI logic. `__init__` runs when module is first opened; `setup()` builds the widget tree. |
+| `SlicerLikertDLratingLogic` | `ScriptedLoadableModuleLogic` | Computation logic, decoupled from UI. |
+| `SlicerLikertDLratingTest` | `ScriptedLoadableModuleTest` | Unit tests runnable from within Slicer. |
+
+Note: the Logic and Test classes in this repo use `SlicerLikertDLrating*` naming (historical), not `SegmentationReview*`.
+
+### Loading the extension for development (no build step needed)
+
+Scripted modules do not need CMake/compilation. To load during development:
+
+1. Open Slicer → **Edit → Application Settings → Modules**
+2. Under **Additional module paths**, click `+` and add the `SegmentationReview/` subfolder (the one containing `SegmentationReview.py`)
+3. Click OK and restart Slicer
+
+The Extension Wizard (`Developer Tools → Extension Wizard`) can also load the extension by selecting the **root** `TutorialGithubNKIRadiology/` folder — but the Additional module paths method above is simpler and more reliable for day-to-day development.
+
+**Do not** point the Extension Wizard at the `SegmentationReview/` subfolder — that is a module directory, not an extension root, and it will fail with a `KeyError: script does not set 'EXTENSION_HOMEPAGE'` error.
 
 
 ## Commit Conventions

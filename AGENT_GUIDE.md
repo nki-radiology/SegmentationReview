@@ -274,6 +274,61 @@ The PR description should describe the change. Mentioning that you used an LLM i
 
 ---
 
+## 6. Understanding the Slicer extension structure (for better prompts)
+
+When asking an LLM to help with this codebase, giving it the right architectural context dramatically improves the output. Here is what to include.
+
+### The codebase in one paragraph (paste this as context)
+
+```
+This is a Python-only (scripted) 3D Slicer extension called SegmentationReview.
+It has no C++ compilation step. The main file is SegmentationReview/SegmentationReview.py,
+which defines four classes following Slicer's ScriptedLoadableModule pattern:
+
+- SegmentationReview (ScriptedLoadableModule): module metadata, runs at startup
+- SegmentationReviewWidget (ScriptedLoadableModuleWidget): Qt UI, __init__ and setup()
+  are called when the user opens the module panel; the UI is loaded from
+  Resources/UI/SegmentationReview.ui via slicer.util.loadUI()
+- SlicerLikertDLratingLogic (ScriptedLoadableModuleLogic): computation, no UI dependency
+- SlicerLikertDLratingTest (ScriptedLoadableModuleTest): Slicer-runnable unit tests
+
+The extension is loaded into Slicer by adding the SegmentationReview/ subfolder
+to Edit → Application Settings → Modules → Additional module paths.
+```
+
+### What NOT to ask the LLM to do with this codebase
+
+- **Don't ask it to "build" or "compile" the module.** Scripted modules have no build step. The `.py` file is loaded directly.
+- **Don't ask it to modify CMakeLists.txt for functional changes.** The CMakeLists files only tell Slicer how to install/package the extension. Actual behaviour lives entirely in the `.py` file.
+- **Don't ask it to add standard Python `if __name__ == "__main__"` guards.** Slicer modules are imported by the Slicer runtime, not run as scripts. These guards do nothing here.
+
+### Useful context snippets for Slicer-specific questions
+
+When asking about UI changes, include:
+```
+The widget layout is defined in Resources/UI/SegmentationReview.ui (Qt Designer XML).
+Widget references are accessed via self.ui.<widgetName> after
+slicer.util.childWidgetVariables(uiWidget) is called in setup().
+```
+
+When asking about data loading:
+```
+Volumes are loaded via slicer.util.loadVolume(). Segmentations use
+slicer.util.loadSegmentation(). The active segmentation is accessed through
+self.segmentEditorWidget.segmentationNode(). The current volume index is
+self.current_index into self.nifti_files (a list of pathlib.Path objects).
+```
+
+When asking about the segment editor:
+```
+The embedded segment editor is a qMRMLSegmentEditorWidget from
+qSlicerSegmentationsModuleWidgetsPythonQt. It is created in
+_createSegmentEditorWidget_() and added directly to self.layout.
+Effects are restricted to a fixed list set via setEffectNameOrder().
+```
+
+---
+
 ## Quick reference
 
 | Task | Command | LLM role |
